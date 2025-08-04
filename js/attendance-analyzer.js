@@ -9,7 +9,7 @@ export const AttendanceAnalyzer = {
   },
 
   isAbsent(value) {
-    return value?.isAbsent || false;
+    return value.todate === undefined;
   },
 
   isPaidLeave(value) {
@@ -24,7 +24,7 @@ export const AttendanceAnalyzer = {
       if (!value || typeof value !== 'object') return false;
 
       // Exclude today's date - only analyze up to yesterday
-      if (key === today) return false;
+      if (key === today || key === "dayList") return false;
 
       const totalHours = value.totalhrs;
       const isHoliday = value.isHoliday || false;
@@ -51,7 +51,7 @@ export const AttendanceAnalyzer = {
       if (!value || typeof value !== 'object' || value.totalhrs === undefined) return false;
 
       // Exclude today's date - only analyze up to yesterday
-      if (key === today) return false;
+      if (key === today || key === "dayList") return false;
 
       const totalHours = value.totalhrs;
       const isHoliday = value.isHoliday || false;
@@ -96,7 +96,7 @@ export const AttendanceAnalyzer = {
         if (!value || typeof value !== 'object') return false;
 
         // Exclude today's date - only analyze up to yesterday
-        if (key === today) return false;
+        if (key === today || key === "dayList") return false;
 
         const isWorkingDay = this.isWorkingDay(value);
         const isAbsent = this.isAbsent(value);
@@ -108,11 +108,10 @@ export const AttendanceAnalyzer = {
           return !isInRequestedDays;
         }
 
-        const isBelow6h = value.totalhrs < CONSTANTS.THRESHOLDS.SIX_HOURS_SECONDS;
+        const isBelow8h = value.totalhrs < CONSTANTS.THRESHOLDS.EIGHT_HOURS_SECONDS;
 
-        return isBelow6h;
+        return isBelow8h;
       });
-    console.log("dayEntries", dayEntries)
     return dayEntries
       .sort((a, b) => a[1].totalhrs - b[1].totalhrs)
       .slice(0, 3)
@@ -132,7 +131,7 @@ export const AttendanceAnalyzer = {
         if (!value || typeof value !== 'object') return false;
 
         // Exclude today's date - only analyze up to yesterday
-        if (key === today) return false;
+        if (key === today || key === "dayList") return false;
 
         const isWorkingDay = this.isWorkingDay(value);
         const isAbsent = this.isAbsent(value);

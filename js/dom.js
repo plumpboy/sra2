@@ -19,6 +19,7 @@ export const DOM = {
       result: '#result',
       startTime: '#start-time',
       endTime: '#end-time',
+      reportDateValue: '#reportDateValue',
       confirmationModal: '#confirmationModal',
       modalSummary: '#modalSummary',
       modalTableBody: '#modalTableBody',
