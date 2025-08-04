@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Working Time Calculator",
+  "version": "1.0",
+  "description": "Calculate working time from Zoho People",
+  "author": "Luuns",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "cookies"
+  ],
+  "action": {
+    "default_popup": "index.html"
+  },
+  "host_permissions": [
+    "https://people.zoho.com/*",
+    "https://accounts.zoho.com/*"
+  ],
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  }
+}

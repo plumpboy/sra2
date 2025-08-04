@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>Working Time Calculator</title>
+  <style>
+    /* Container and responsive layout */
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #f8f9fa;
+    }
+
+    /* Tab Navigation Styles */
+    .tab-container {
+      min-width: 400px;
+      max-width: 480px;
+      width: 100%;
+      background-color: white;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 0 auto;
+    }
+
+    .tab-nav {
+      display: flex;
+      border-bottom: 2px solid #e0e0e0;
+      background-color: #f8f9fa;
+      margin: 0;
+    }
+
+    .tab-button {
+      flex: 1;
+      padding: 14px 20px;
+      border: none;
+      background-color: transparent;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 600;
+      color: #666;
+      transition: all 0.3s ease;
+      border-bottom: 3px solid transparent;
+      text-align: center;
+    }
+
+    .tab-button:hover {
+      background-color: #e9ecef;
+      color: #333;
+    }
+
+    .tab-button.active {
+      color: #4CAF50;
+      border-bottom-color: #4CAF50;
+      background-color: white;
+    }
+
+    .tab-content {
+      display: none;
+      padding: 0;
+      min-height: 450px;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Main content container */
+    .container {
+      padding: 20px;
+      position: relative;
+      background-color: white;
+    }
+
+    .main-content {
+      margin-bottom: 20px;
+    }
+
+    .config-section input {
+      width: 100%;
+      margin-bottom: 8px;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+
+    /* Button styles */
+    #calculateTime,
+    #goTozoho,
+    #autoLogAttendance,
+    #manualLogAttendance {
+      width: 100%;
+      padding: 12px 16px;
+      margin-bottom: 12px;
+      background-color: #4CAF50;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      transition: background-color 0.3s ease;
+      box-sizing: border-box;
+    }
+
+    #calculateTime:hover,
+    #autoLogAttendance:hover,
+    #manualLogAttendance:hover {
+      background-color: #45a049;
+    }
+
+    #goTozoho {
+      background-color: #007bff;
+      width: auto !important;
+      padding: 8px 16px !important;
+      margin: 8px auto 0 auto !important;
+      display: block;
+    }
+
+    #goTozoho:hover {
+      background-color: #0056b3;
+    }
+
+    /* Auto log section */
+    .auto-log {
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    #result,
+    #notice {
+      margin-top: 10px;
+      font-size: 16px;
+      text-align: center;
+    }
+
+    #start-time,
+    #end-time {
+      font-size: 15px;
+      font-weight: 500;
+    }
+
+    #time-range {
+      font-size: 15px;
+      text-align: center;
+    }
+
+    /* Responsive design */
+    @media (max-width: 480px) {
+      .tab-container {
+        min-width: 320px;
+        margin: 0 8px;
+        border-radius: 6px;
+      }
+
+      .container {
+        padding: 16px;
+      }
+
+      .tab-button {
+        padding: 12px 16px;
+        font-size: 14px;
+      }
+
+      .main-table th,
+      .main-table td {
+        padding: 10px 12px;
+        font-size: 13px;
+      }
+
+      .main-table .label {
+        width: 50%;
+      }
+
+      .main-table .value {
+        width: 50%;
+      }
+
+      .about-content {
+        padding: 16px;
+      }
+
+      .about-header h2 {
+        font-size: 22px;
+      }
+
+      .about-section h3 {
+        font-size: 16px;
+      }
+
+      .modal-overlay {
+        padding: 16px;
+      }
+
+      .modal-content {
+        padding: 20px;
+        border-radius: 8px;
+      }
+
+      .modal-table th,
+      .modal-table td {
+        padding: 8px;
+        font-size: 13px;
+      }
+
+      .qr-container {
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .qr-info {
+        text-align: center;
+      }
+
+      .qr-image {
+        width: 100px;
+        height: 100px;
+      }
+
+      .payment-methods {
+        justify-content: center;
+      }
+    }
+
+    @media (max-width: 360px) {
+      .tab-container {
+        min-width: 300px;
+      }
+
+      .container {
+        padding: 12px;
+      }
+
+      .about-content {
+        padding: 12px;
+      }
+    }
+
+    /* Message styles */
+    .message {
+      padding: 12px 16px;
+      margin: 12px 0;
+      border-radius: 6px;
+      text-align: center;
+      font-weight: 500;
+      display: none;
+      box-sizing: border-box;
+    }
+
+    .message.success {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .message.error {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    /* Zoho section specific styling */
+    #goToZohoSection {
+      margin: 15px 0;
+      padding: 16px;
+    }
+
+    #goToZohoSection div {
+      margin-bottom: 12px;
+      font-size: 14px;
+    }
+
+    /* Main content table styles */
+    .main-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+      font-size: 14px;
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .main-table th {
+      padding: 12px 16px;
+      text-align: center;
+      border-bottom: 1px solid #ddd;
+      background-color: #f8f9fa;
+      font-weight: 600;
+      color: #495057;
+    }
+
+    .main-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .main-table .label {
+      font-weight: 600;
+      color: #495057;
+      width: 45%;
+      text-align: left;
+    }
+
+    .main-table .value {
+      color: #007bff;
+      width: 55%;
+      text-align: center;
+      font-weight: 500;
+    }
+
+    .main-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .main-table tbody tr:hover {
+      background-color: #f8f9fa;
+    }
+
+    /* Modal styles */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.6);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    .modal-content {
+      background-color: white;
+      padding: 24px;
+      border-radius: 12px;
+      max-width: 600px;
+      width: 100%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+      position: relative;
+    }
+
+    .modal-header {
+      margin: 0 0 20px 0;
+      color: #495057;
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .modal-summary {
+      margin: 0 0 16px 0;
+      color: #6c757d;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .modal-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .modal-table th {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+      background-color: #f8f9fa;
+      font-weight: 600;
+      color: #495057;
+    }
+
+    .modal-table td {
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .modal-table .will-log {
+      color: #4CAF50;
+      font-weight: 600;
+    }
+
+    .modal-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .modal-button {
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    .modal-button.cancel {
+      border: 1px solid #ddd;
+      background-color: white;
+      color: #6c757d;
+    }
+
+    .modal-button.cancel:hover {
+      background-color: #f8f9fa;
+      border-color: #adb5bd;
+    }
+
+    .modal-button.confirm {
+      border: none;
+      background-color: #4CAF50;
+      color: white;
+    }
+
+    .modal-button.confirm:hover {
+      background-color: #45a049;
+    }
+
+    /* About page styles */
+    .about-content {
+      max-width: 100%;
+      line-height: 1.6;
+      padding: 20px;
+    }
+
+    .about-header {
+      text-align: center;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid #e0e0e0;
+    }
+
+    .about-header h2 {
+      color: #4CAF50;
+      margin: 0 0 8px 0;
+      font-size: 26px;
+      font-weight: 700;
+    }
+
+    .version {
+      color: #6c757d;
+      margin: 0;
+      font-style: italic;
+      font-size: 14px;
+    }
+
+    .about-section {
+      margin-bottom: 28px;
+    }
+
+    .about-section h3 {
+      color: #495057;
+      margin: 0 0 12px 0;
+      font-size: 18px;
+      font-weight: 600;
+      border-left: 4px solid #4CAF50;
+      padding-left: 12px;
+    }
+
+    .about-section p {
+      margin: 0 0 12px 0;
+      color: #6c757d;
+      line-height: 1.5;
+    }
+
+    .feature-list,
+    .usage-steps,
+    .tech-list {
+      margin: 12px 0;
+      padding-left: 24px;
+    }
+
+    .feature-list li,
+    .tech-list li {
+      margin-bottom: 6px;
+      color: #6c757d;
+      line-height: 1.4;
+    }
+
+    .usage-steps li {
+      margin-bottom: 10px;
+      color: #6c757d;
+      line-height: 1.4;
+    }
+
+    .config-info {
+      background-color: #f8f9fa;
+      padding: 16px;
+      border-radius: 8px;
+      border-left: 4px solid #4CAF50;
+      margin: 16px 0;
+    }
+
+    .config-item {
+      margin-bottom: 10px;
+      color: #6c757d;
+      line-height: 1.4;
+    }
+
+    .config-item strong {
+      color: #495057;
+      font-weight: 600;
+    }
+
+    /* Donation section styles */
+    .donate-section {
+      background-color: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      border-left: 4px solid #4CAF50;
+      margin: 16px 0;
+      text-align: center;
+    }
+
+    .qr-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      margin: 20px 0;
+      flex-wrap: wrap;
+    }
+
+    .qr-code {
+      flex-shrink: 0;
+    }
+
+    .qr-image {
+      width: 120px;
+      height: 120px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      background-color: white;
+      padding: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .qr-info {
+      flex: 1;
+      min-width: 200px;
+      text-align: left;
+    }
+
+    .qr-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #495057;
+      margin: 0 0 8px 0;
+    }
+
+    .qr-description {
+      font-size: 14px;
+      color: #6c757d;
+      margin: 0 0 12px 0;
+    }
+
+    .payment-methods {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .payment-badge {
+      background-color: #4CAF50;
+      color: white;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .donate-note {
+      margin-top: 16px;
+      padding: 12px;
+      background-color: rgba(76, 175, 80, 0.1);
+      border-radius: 6px;
+      font-size: 14px;
+      color: #495057;
+    }
+
+    .about-footer {
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid #e0e0e0;
+      text-align: center;
+    }
+
+    .about-footer p {
+      margin: 6px 0;
+      color: #6c757d;
+    }
+
+    .author {
+      font-size: 16px;
+      font-weight: 500;
+    }
+
+    .support {
+      font-size: 14px;
+      font-style: italic;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="tab-container">
+    <!-- Tab Navigation -->
+    <div class="tab-nav">
+      <button class="tab-button active" data-tab="home">Home</button>
+      <button class="tab-button" data-tab="about">About</button>
+    </div>
+
+    <!-- Home Tab Content (Original Popup) -->
+    <div id="home-tab" class="tab-content active">
+      <div class="container">
+        <div class="main-content">
+          <button id="calculateTime">ATTENDANCE REPORT</button>
+
+          <!-- Message display area -->
+          <div id="successMessage" class="message success"></div>
+          <div id="errorMessage" class="message error"></div>
+
+          <table class="main-table">
+            <thead>
+              <tr>
+                <th colspan="2">Today's Work Summary</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="label">Recommended Working Time:</td>
+                <td class="value" id="time-range">
+                  <span id="start-time">--</span> - <span id="end-time">--</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="label">Duration:</td>
+                <td class="value" id="result">--</td>
+              </tr>
+              <tr>
+                <td class="label">Days Below 6h:</td>
+                <td class="value" id="daysBelow6h">--</td>
+              </tr>
+              <tr>
+                <td class="label">Days 6h-8h:</td>
+                <td class="value" id="days6hTo8h">--</td>
+              </tr>
+              <tr>
+                <td class="label">Requested Days:</td>
+                <td class="value" id="requestedDays">--</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div id="goToZohoSection" class="message error" style="display: none;">
+          <div style="margin-bottom: 10px;">You must login to Zoho People to use this extension.</div>
+          <button id="goTozoho" style="width: auto; padding: 6px 12px; margin: 0;">Go to Zoho</button>
+        </div>
+
+        <div class="auto-log">
+          <button id="autoLogAttendance">Auto log Attendance</button>
+          <button id="manualLogAttendance">Manual log Attendance</button>
+        </div>
+
+        <!-- Confirmation Modal for Auto Log -->
+        <div id="confirmationModal" class="modal-overlay">
+          <div class="modal-content">
+            <h3 class="modal-header">Confirm Attendance Logging</h3>
+            <div id="modalDatesList">
+              <p class="modal-summary" id="modalSummary"></p>
+              <table class="modal-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Current Hours</th>
+                    <th>New Hours</th>
+                  </tr>
+                </thead>
+                <tbody id="modalTableBody">
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-buttons">
+              <button id="modalCancel" class="modal-button cancel">Cancel</button>
+              <button id="modalConfirm" class="modal-button confirm">Confirm Log</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Confirmation Modal for Manual Log -->
+        <div id="confirmationModalManual" class="modal-overlay">
+          <div class="modal-content">
+            <h3 class="modal-header">Confirm Manual Attendance Logging</h3>
+            <div id="modalDatesListManual">
+              <p class="modal-summary" id="modalSummaryManual"></p>
+              <table class="modal-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Current Hours</th>
+                    <th>New Hours</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="modalTableBodyManual">
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-buttons">
+              <button id="modalCancelManual" class="modal-button cancel">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- About Tab Content -->
+    <div id="about-tab" class="tab-content">
+      <div class="about-content">
+        <div class="about-header">
+          <h2>Working Time Calculator</h2>
+          <p class="version">Version 1.0</p>
+        </div>
+
+        <div class="about-section">
+          <h3>Support Development Team</h3>
+          <div class="donate-section">
+            <p>If you find this extension helpful, buy me a coffee!</p>
+            <div class="qr-container">
+              <div class="qr-code">
+                <img
+                  src="qr.png"
+                  alt="Donation QR Code" class="qr-image" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="about-section">
+          <h3>Overview</h3>
+          <p>A Chrome extension that calculates working time from Zoho People and provides automatic attendance logging
+            functionality.</p>
+        </div>
+
+        <div class="about-section">
+          <h3>Features</h3>
+          <ul class="feature-list">
+            <li>✅ Real-time work duration calculation</li>
+            <li>✅ Attendance analysis and reporting</li>
+            <li>✅ Automatic attendance logging</li>
+            <li>✅ Manual selective logging</li>
+            <li>✅ Request limit management</li>
+            <li>✅ Break time handling</li>
+          </ul>
+        </div>
+
+        <div class="about-section">
+          <h3>How to Use</h3>
+          <ol class="usage-steps">
+            <li>Navigate to Zoho People in your browser</li>
+            <li>Click the extension icon to open the calculator</li>
+            <li>Click "ATTENDANCE REPORT" to analyze your data</li>
+            <li>Use "Auto log" for optimal attendance logging</li>
+            <li>Use "Manual log" for selective attendance logging</li>
+          </ol>
+        </div>
+
+        <div class="about-section">
+          <h3>Work Hours Configuration</h3>
+          <div class="config-info">
+            <div class="config-item">
+              <strong>Work Hours:</strong> 7:30 AM - 7:30 PM
+            </div>
+            <div class="config-item">
+              <strong>Lunch Break:</strong> 12:00 PM - 1:15 PM
+            </div>
+            <div class="config-item">
+              <strong>Late Start Threshold:</strong> 10:15 AM
+            </div>
+            <div class="config-item">
+              <strong>Standard Work Hours:</strong> 8 hours
+            </div>
+            <div class="config-item">
+              <strong>Limited Work Hours:</strong> 6 hours (for late starts)
+            </div>
+          </div>
+        </div>
+
+        <div class="about-footer">
+          <p class="support">For support or feedback, please contact the development team.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab routing and app initialization -->
+  <script type="module" src="js/index.js"></script>
+</body>
+
+</html>
