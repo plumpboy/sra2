@@ -19,8 +19,36 @@ export class AppController {
 
   async initialize() {
     DOM.init();
+    this.updateReportDate();
     await this.setupEventListeners();
     await this.calculateTime();
+  }
+
+  updateReportDate() {
+    const today = new Date();
+    const dayOfMonth = today.getDate();
+    
+    let reportDate;
+    if (dayOfMonth === 23) {
+      // If day of month is 23, use 21st of current month
+      reportDate = new Date(today.getFullYear(), today.getMonth(), 21);
+    } else {
+      // Otherwise use yesterday
+      reportDate = new Date(today);
+      reportDate.setDate(today.getDate() - 1);
+    }
+    
+    // Format date as dd-mm-yyyy
+    const day = String(reportDate.getDate()).padStart(2, '0');
+    const month = String(reportDate.getMonth() + 1).padStart(2, '0');
+    const year = reportDate.getFullYear();
+    const formattedDate = `${day}-${month}-${year}`;
+    
+    // Update the span element
+    const reportDateElement = DOM.get('reportDateValue');
+    if (reportDateElement) {
+      reportDateElement.textContent = formattedDate;
+    }
   }
 
   async setupEventListeners() {
