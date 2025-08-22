@@ -10,17 +10,18 @@ export const Utils = {
   getDateRange() {
     const today = new Date();
     const dayOfMonth = today.getDate();
-
+    let toDate = this.formatDateToCustom(today);
     let fromDate;
     if (dayOfMonth <= 23) {
       const previousMonth = new Date(today.getFullYear(), today.getMonth() - 1, 21);
       fromDate = this.formatDateToCustom(previousMonth);
+      toDate = this.formatDateToCustom(new Date(today.getFullYear(), today.getMonth(), 20));
     } else {
       const currentMonth = new Date(today.getFullYear(), today.getMonth(), 21);
       fromDate = this.formatDateToCustom(currentMonth);
     }
 
-    const toDate = this.formatDateToCustom(today);
+
     return { fromDate, toDate };
   },
 
