@@ -67,6 +67,9 @@ export class UIManager {
     elements.forEach((element, index) => {
       DOM.setText(element, defaultValues[index]);
     });
+    
+    // Hide month transition note when resetting
+    DOM.setDisplay('monthTransitionNote', 'none');
   }
 
   static showMainInterface() {
