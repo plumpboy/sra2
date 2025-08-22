@@ -12,7 +12,7 @@ export const Utils = {
     const dayOfMonth = today.getDate();
     let toDate = this.formatDateToCustom(today);
     let fromDate;
-    if (dayOfMonth <= 23) {
+    if (dayOfMonth < 23) {
       const previousMonth = new Date(today.getFullYear(), today.getMonth() - 1, 21);
       fromDate = this.formatDateToCustom(previousMonth);
       toDate = this.formatDateToCustom(new Date(today.getFullYear(), today.getMonth(), 20));
