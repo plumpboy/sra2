@@ -16,14 +16,8 @@ export const RequestLimitManager = {
         const message = `You have used up all your attendance requests for this month. <a href="https://people.zoho.com/${hrId}/zp#attendance/entry/regularization" target="_blank">Click here to see detail</a>`;
         UIManager.showMessage(message, 'error', true);
 
-        UIManager.setButtonState('autoLogAttendance', true, 'Attendance requests limit reached');
-        UIManager.setButtonState('manualLogAttendance', true, 'Attendance requests limit reached');
-
         return true;
       } else {
-        UIManager.setButtonState('autoLogAttendance', false);
-        UIManager.setButtonState('manualLogAttendance', false);
-
         const errorMessage = DOM.get('errorMessage');
         if (errorMessage) errorMessage.style.display = 'none';
 

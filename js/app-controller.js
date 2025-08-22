@@ -69,6 +69,9 @@ export class AppController {
     DOM.get('modalCancelManual')?.addEventListener('click', () => UIManager.hideConfirmationModalManual());
 
     DOM.get('modalConfirm')?.addEventListener('click', async () => {
+      const limitReached = await RequestLimitManager.checkAndHandleRequestLimit();
+      if (limitReached) return;
+
       UIManager.hideConfirmationModal();
       UIManager.showMessage('Logging Attendance...', 'success');
 
@@ -148,9 +151,6 @@ export class AppController {
     const autoLogButton = DOM.get('autoLogAttendance');
     if (autoLogButton?.disabled) return;
 
-    const limitReached = await RequestLimitManager.checkAndHandleRequestLimit();
-    if (limitReached) return;
-
     try {
       const data1 = await Storage.get('data1');
       if (!data1) {
@@ -169,7 +169,10 @@ export class AppController {
       }
 
       this.datesToLog = datesToLog;
-      UIManager.showConfirmationModal(datesToLog, data1);
+      
+      // Check if limit is reached
+      const limitReached = await RequestLimitManager.checkAndHandleRequestLimit();
+      UIManager.showConfirmationModal(datesToLog, data1, limitReached);
 
     } catch (error) {
       console.error('Error in auto log Attendance:', error);
@@ -179,9 +182,6 @@ export class AppController {
   async manualLogAttendance() {
     const manualLogButton = DOM.get('manualLogAttendance');
     if (manualLogButton?.disabled) return;
-
-    const limitReached = await RequestLimitManager.checkAndHandleRequestLimit();
-    if (limitReached) return;
 
     try {
       const data1 = await Storage.get('data1');
@@ -200,10 +200,14 @@ export class AppController {
         return;
       }
 
+      // Check if limit is reached
+      const limitReached = await RequestLimitManager.checkAndHandleRequestLimit();
+
       UIManager.showConfirmationModalManual(
         daysBelow8h.map(day => day.date),
         data1,
-        AttendanceLogger.logAttendanceForDates.bind(AttendanceLogger)
+        AttendanceLogger.logAttendanceForDates.bind(AttendanceLogger),
+        limitReached
       );
 
     } catch (error) {

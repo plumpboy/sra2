@@ -77,14 +77,22 @@ export class UIManager {
     }
   }
 
-  static showConfirmationModal(datesToLog, data1) {
+  static showConfirmationModal(datesToLog, data1, limitReached = false) {
     const modal = DOM.get('confirmationModal');
     const summary = DOM.get('modalSummary');
     const tableBody = DOM.get('modalTableBody');
+    const confirmButton = DOM.get('modalConfirm');
 
     if (!modal || !summary || !tableBody) return;
 
-    summary.textContent = `You are about to log Attendance for ${datesToLog.length} date(s):`;
+    if (limitReached) {
+      summary.innerHTML = `<span style="color: #e74c3c; font-weight: bold;">⚠️ You've reached your request limit for this month</span><br><br>You are about to log Attendance for ${datesToLog.length} date(s):`;
+      this.setButtonState('modalConfirm', true, 'Request limit reached');
+    } else {
+      summary.textContent = `You are about to log Attendance for ${datesToLog.length} date(s):`;
+      this.setButtonState('modalConfirm', false);
+    }
+
     tableBody.innerHTML = '';
 
     datesToLog.forEach(date => {
@@ -108,14 +116,19 @@ export class UIManager {
     if (modal) modal.style.display = 'none';
   }
 
-  static showConfirmationModalManual(datesToLog, data1, onLogCallback) {
+  static showConfirmationModalManual(datesToLog, data1, onLogCallback, limitReached = false) {
     const modal = DOM.get('confirmationModalManual');
     const summary = DOM.get('modalSummaryManual');
     const tableBody = DOM.get('modalTableBodyManual');
 
     if (!modal || !summary || !tableBody) return;
 
-    summary.textContent = `Select days to log Attendance (${datesToLog.length} days available):`;
+    if (limitReached) {
+      summary.innerHTML = `<span style="color: #e74c3c; font-weight: bold;">⚠️ You've reached your request limit for this month</span><br><br>Select days to log Attendance (${datesToLog.length} days available):`;
+    } else {
+      summary.textContent = `Select days to log Attendance (${datesToLog.length} days available):`;
+    }
+
     tableBody.innerHTML = '';
 
     datesToLog.forEach(date => {
@@ -123,35 +136,42 @@ export class UIManager {
       const currentHours = data1.regDetails[date]?.totalhrs || 0;
       const formattedCurrentHours = Utils.formatSecondsToHoursMinutes(currentHours);
 
+      const buttonStyle = limitReached 
+        ? 'padding: 4px 8px; font-size: 12px; opacity: 0.5; cursor: not-allowed;' 
+        : 'padding: 4px 8px; font-size: 12px;';
+
       row.innerHTML = `
         <td>${date}</td>
         <td>${formattedCurrentHours}</td>
         <td class="will-log">8h</td>
         <td>
-          <button class="modal-button confirm" style="padding: 4px 8px; font-size: 12px;" data-date="${date}">
+          <button class="modal-button confirm" style="${buttonStyle}" data-date="${date}" ${limitReached ? 'disabled title="Request limit reached"' : ''}>
             Log
           </button>
         </td>
       `;
 
       const logButton = row.querySelector('.modal-button');
-      logButton.addEventListener('click', async () => {
-        logButton.disabled = true;
-        logButton.textContent = 'Logging...';
+      
+      if (!limitReached) {
+        logButton.addEventListener('click', async () => {
+          logButton.disabled = true;
+          logButton.textContent = 'Logging...';
 
-        const result = await onLogCallback([date]);
+          const result = await onLogCallback([date]);
 
-        if (result.success) {
-          logButton.textContent = 'Logged';
-          logButton.style.backgroundColor = '#28a745';
-          UIManager.showMessage(`✅ Logged Attendance for ${date}. Refreshing...`, 'success');
-          setTimeout(() => window.location.reload(), CONSTANTS.REFRESH_DELAY);
-        } else {
-          logButton.disabled = false;
-          logButton.textContent = 'Log';
-          UIManager.showMessage(`❌ Failed to log ${date}: ${result.error}`, 'error');
-        }
-      });
+          if (result.success) {
+            logButton.textContent = 'Logged';
+            logButton.style.backgroundColor = '#28a745';
+            UIManager.showMessage(`✅ Logged Attendance for ${date}. Refreshing...`, 'success');
+            setTimeout(() => window.location.reload(), CONSTANTS.REFRESH_DELAY);
+          } else {
+            logButton.disabled = false;
+            logButton.textContent = 'Log';
+            UIManager.showMessage(`❌ Failed to log ${date}: ${result.error}`, 'error');
+          }
+        });
+      }
 
       tableBody.appendChild(row);
     });
