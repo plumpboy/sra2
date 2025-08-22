@@ -38,6 +38,20 @@ export class UIManager {
     DOM.setText('daysBelow6h', lateDaysBelow6h);
     DOM.setText('days6hTo8h', lateDaysFrom6hTo8h);
     DOM.setText('requestedDays', totalRequestDays);
+    
+    // Show month transition note for dates 21-22
+    this.updateMonthTransitionNote();
+  }
+
+  static updateMonthTransitionNote() {
+    const currentDate = new Date();
+    const dayOfMonth = currentDate.getDate();
+    
+    if (dayOfMonth === 21 || dayOfMonth === 22) {
+      DOM.setDisplay('monthTransitionNote', 'block');
+    } else {
+      DOM.setDisplay('monthTransitionNote', 'none');
+    }
   }
 
   static updateTimeDisplay(result) {

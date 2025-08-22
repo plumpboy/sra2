@@ -20,6 +20,7 @@ export const DOM = {
       startTime: '#start-time',
       endTime: '#end-time',
       reportDateValue: '#reportDateValue',
+      monthTransitionNote: '#monthTransitionNote',
       confirmationModal: '#confirmationModal',
       modalSummary: '#modalSummary',
       modalTableBody: '#modalTableBody',
