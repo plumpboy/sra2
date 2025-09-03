@@ -3,8 +3,10 @@ import { CONSTANTS } from './constants.js';
 // Utility Functions
 export const Utils = {
   formatDateToCustom(date) {
-    const options = { day: '2-digit', month: 'short', year: 'numeric' };
-    return new Intl.DateTimeFormat('en-GB', options).format(date).replace(/ /g, '-');
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = date.toLocaleDateString('en-US', { month: 'short' });
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
   },
 
   getDateRange() {
@@ -15,12 +17,15 @@ export const Utils = {
     if (dayOfMonth < 23) {
       const previousMonth = new Date(today.getFullYear(), today.getMonth() - 1, 21);
       fromDate = this.formatDateToCustom(previousMonth);
-      toDate = this.formatDateToCustom(new Date(today.getFullYear(), today.getMonth(), 20));
+      if (dayOfMonth <= 20) {
+        toDate = this.formatDateToCustom(today);
+      } else {
+        toDate = this.formatDateToCustom(new Date(today.getFullYear(), today.getMonth(), 20));
+      }
     } else {
       const currentMonth = new Date(today.getFullYear(), today.getMonth(), 21);
       fromDate = this.formatDateToCustom(currentMonth);
     }
-
 
     return { fromDate, toDate };
   },
