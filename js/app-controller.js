@@ -111,6 +111,8 @@ export class AppController {
       // Calculate statistics
       const lateDaysBelow6h = AttendanceAnalyzer.countEntriesBelow6h(data1?.regDetails);
       const lateDaysFrom6hTo8h = AttendanceAnalyzer.countEntriesFrom6hTo8h(data1?.regDetails);
+      console.log(2222222222222, lateDaysBelow6h)
+      console.log(33333333333, lateDaysFrom6hTo8h)
       const requestDays = data2?.list.filter(item => item.status != 2 && item.status!= 0);
       const totalRequestDays = requestDays?.length || 0;
 
@@ -200,6 +202,9 @@ export class AppController {
         return;
       }
 
+      // Get credentials for leave modal
+      const credentials = await AuthManager.getCredentials();
+
       // Check if limit is reached
       const limitReached = await RequestLimitManager.checkAndHandleRequestLimit();
 
@@ -207,7 +212,8 @@ export class AppController {
         daysBelow8h.map(day => day.date),
         data1,
         AttendanceLogger.logAttendanceForDates.bind(AttendanceLogger),
-        limitReached
+        limitReached,
+        credentials
       );
 
     } catch (error) {

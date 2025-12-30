@@ -77,5 +77,70 @@ export const ApiService = {
         erecno: userId
       }
     );
+  },
+
+  async getLeaveTypes(hrId, csrfToken, userId) {
+    return await this.makeRequest(
+      `https://people.zoho.com/${hrId}/leave_common_action.zp`,
+      {
+        key: 'leavetype_appl',
+        employee: userId,
+        isView: false,
+        conreqcsr: csrfToken
+      }
+    );
+  },
+
+  async applyLeave(hrId, csrfToken, userId, loginUserZUID, leaveData) {
+    // leaveData: { leaveTypeId, date, reason, duration, period }
+    // duration: 'full' | 'half' | 'quarter'
+    // period: '1st_half' | '2nd_half' | '1st_quarter' | '2nd_quarter' | '3rd_quarter' | '4th_quarter'
+
+    // Calculate days taken and session based on duration/period
+    let daysTaken = 1;
+    let session = 0; // 0 = full day
+
+    if (leaveData.duration === 'half') {
+      daysTaken = 0.5;
+      session = leaveData.period === '1st_half' ? 1 : 2; // 1 = 1st half, 2 = 2nd half
+    } else if (leaveData.duration === 'quarter') {
+      daysTaken = 0.25;
+      // 1 = 1st quarter, 2 = 2nd quarter, 3 = 3rd quarter, 4 = 4th quarter
+      const quarterMap = {
+        '1st_quarter': 1,
+        '2nd_quarter': 2,
+        '3rd_quarter': 3,
+        '4th_quarter': 4
+      };
+      session = quarterMap[leaveData.period] || 1;
+    }
+
+    const dateSessionData = JSON.stringify({
+      count: daysTaken,
+      session: session
+    });
+
+    return await this.makeRequest(
+      `https://people.zoho.com/${hrId}/addUpdateRecord.zp`,
+      {
+        isPicklistIdEnabled: true,
+        Employee_ID: userId,
+        Leavetype: leaveData.leaveTypeId,
+        From: leaveData.date,
+        To: leaveData.date,
+        bereavement_leave_type: '',
+        Reasonforleave: leaveData.reason || 'Personal reason',
+        zp_tableName: 'P_EmployeeLeave',
+        loginUserZUID: loginUserZUID,
+        conreqcsr: csrfToken,
+        zp_formId: '412762000000035693',
+        zp_mode: 'addRecord',
+        [leaveData.date]: dateSessionData,
+        isHour: false,
+        isDayBased: true,
+        Daystaken: daysTaken,
+        isDraft: false
+      }
+    );
   }
 };

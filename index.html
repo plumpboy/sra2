@@ -15,8 +15,8 @@
 
     /* Tab Navigation Styles */
     .tab-container {
-      min-width: 500px;
-      max-width: 600px;
+      min-width: 700px;
+      max-width: 800px;
       width: 100%;
       background-color: white;
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
@@ -228,9 +228,6 @@
     }
 
     @media (max-width: 480px) {
-      .tab-container {
-        min-width: 350px;
-      }
 
       .container {
         padding: 12px;
@@ -340,11 +337,11 @@
 
     .modal-content {
       background-color: white;
-      padding: 24px;
+      padding: 16px;
       border-radius: 12px;
-      max-width: 600px;
+      max-width: 100%;
       width: 100%;
-      max-height: 80vh;
+      max-height: 90vh;
       overflow-y: auto;
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
       position: relative;
@@ -384,7 +381,7 @@
 
     .modal-table td {
       padding: 12px;
-      border-bottom: 1px solid #eee;
+      /*border-bottom: 1px solid #eee;*/
     }
 
     .modal-table .will-log {
@@ -711,6 +708,7 @@
           <div class="modal-content">
             <h3 class="modal-header">Confirm Manual Attendance Logging</h3>
             <div id="modalDatesListManual">
+              <div id="modalSuccessMessageManual" style="display: none; padding: 8px 12px; margin-bottom: 10px; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; border-radius: 4px;"></div>
               <p class="modal-summary" id="modalSummaryManual"></p>
               <table class="modal-table">
                 <thead>
@@ -718,7 +716,7 @@
                     <th>Date</th>
                     <th>Current Hours</th>
                     <th>New Hours</th>
-                    <th>Action</th>
+                    <th style="text-align: center;">Action</th>
                   </tr>
                 </thead>
                 <tbody id="modalTableBodyManual">
@@ -727,6 +725,52 @@
             </div>
             <div class="modal-buttons">
               <button id="modalCancelManual" class="modal-button cancel">Close</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Leave Request Modal -->
+        <div id="leaveRequestModal" class="modal-overlay">
+          <div class="modal-content" style="max-width: 400px;">
+            <h3 class="modal-header">Apply Leave</h3>
+            <p class="modal-summary">Apply leave for: <strong id="leaveModalDate"></strong></p>
+
+            <div style="margin-bottom: 16px;">
+              <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #495057;">Leave Type</label>
+              <select id="leaveType" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                <option value="annual">Annual Leave</option>
+                <option value="bereavement">Bereavement Leave (Phép tang)</option>
+                <option value="seniority">Seniority Leave</option>
+                <option value="unpaid">Unpaid Leave</option>
+              </select>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+              <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #495057;">Duration</label>
+              <select id="leaveDuration" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                <option value="full">Full Day</option>
+                <option value="half">Half Day</option>
+                <option value="quarter">Quarter Day</option>
+              </select>
+            </div>
+
+            <div id="leavePeriodContainer" style="margin-bottom: 16px;">
+              <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #495057;">Period</label>
+              <select id="leavePeriod" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;" disabled>
+                <option value="">N/A</option>
+              </select>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+              <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #495057;">Reason for Leave</label>
+              <textarea id="leaveReason" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; min-height: 80px; resize: vertical; box-sizing: border-box;" placeholder="Enter reason for leave..."></textarea>
+            </div>
+
+            <div id="leaveModalError" style="display: none; padding: 10px 12px; margin-bottom: 12px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 4px; font-size: 13px;"></div>
+
+            <div class="modal-buttons">
+              <button id="leaveModalCancel" class="modal-button cancel">Cancel</button>
+              <button id="leaveModalConfirm" class="modal-button confirm" style="background-color: #007bff;">Apply Leave</button>
             </div>
           </div>
         </div>
