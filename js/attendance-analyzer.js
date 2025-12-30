@@ -16,6 +16,31 @@ export const AttendanceAnalyzer = {
     return value?.isPaidLeave || false;
   },
 
+  // Calculate valid working hours clamped to work schedule (7:30-19:30)
+  // Note: totalhrs already has lunch break deducted
+  calculateValidWorkHours(value) {
+    if (!value || value.totalhrs === undefined) return 0;
+    if (!value.fromdate || !value.todate) return value.totalhrs;
+
+    const parseTime = (timeStr) => {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      return hours * 3600 + minutes * 60;
+    };
+
+    const checkIn = parseTime(value.fromdate);
+    const checkOut = parseTime(value.todate);
+
+    const workStart = CONSTANTS.WORK_HOURS.START.hours * 3600 + CONSTANTS.WORK_HOURS.START.minutes * 60;
+    const workEnd = CONSTANTS.WORK_HOURS.END.hours * 3600 + CONSTANTS.WORK_HOURS.END.minutes * 60;
+
+    const effectiveStart = Math.max(checkIn, workStart);
+    const effectiveEnd = Math.min(checkOut, workEnd);
+
+    if (effectiveEnd <= effectiveStart) return 0;
+
+    return effectiveEnd - effectiveStart;
+  },
+
   countEntriesBelow6h(regDetails) {
     // Get today's date in the same format as the data
     const today = Utils.formatDateToCustom(new Date());
@@ -26,7 +51,7 @@ export const AttendanceAnalyzer = {
       // Exclude today's date - only analyze up to yesterday
       if (key === today || key === "dayList") return false;
 
-      const totalHours = value.totalhrs;
+      const totalHours = this.calculateValidWorkHours(value);
       const isHoliday = value.isHoliday || false;
       const isWeekend = value.isWeekend || false;
       const isAbsent = this.isAbsent(value);
@@ -53,7 +78,7 @@ export const AttendanceAnalyzer = {
       // Exclude today's date - only analyze up to yesterday
       if (key === today || key === "dayList") return false;
 
-      const totalHours = value.totalhrs;
+      const totalHours = this.calculateValidWorkHours(value);
       const isHoliday = value.isHoliday || false;
       const isWeekend = value.isWeekend || false;
 
@@ -73,7 +98,7 @@ export const AttendanceAnalyzer = {
       // Exclude today's date - only analyze up to yesterday
       if (key === today) return false;
 
-      const totalHours = value.totalhrs;
+      const totalHours = this.calculateValidWorkHours(value);
       const isHoliday = value.isHoliday || false;
       const isWeekend = value.isWeekend || false;
 
@@ -92,7 +117,6 @@ export const AttendanceAnalyzer = {
 
     const dayEntries = Object.entries(regDetails)
       .filter(([key, value]) => {
-        console.log("key: value", key, value)
         if (!value || typeof value !== 'object') return false;
 
         // Exclude today's date - only analyze up to yesterday
@@ -108,12 +132,11 @@ export const AttendanceAnalyzer = {
           return !isInRequestedDays;
         }
 
-        const isBelow8h = value.totalhrs < CONSTANTS.THRESHOLDS.EIGHT_HOURS_SECONDS;
-
-        return isBelow8h;
+        const validHours = this.calculateValidWorkHours(value);
+        return validHours < CONSTANTS.THRESHOLDS.EIGHT_HOURS_SECONDS;
       });
     return dayEntries
-      .sort((a, b) => a[1].totalhrs - b[1].totalhrs)
+      .sort((a, b) => this.calculateValidWorkHours(a[1]) - this.calculateValidWorkHours(b[1]))
       .slice(0, 3)
       .map(([date]) => date);
   },
@@ -145,14 +168,19 @@ export const AttendanceAnalyzer = {
           return !isInRequestedDays;
         }
 
-        const isBelow8h = value.totalhrs < CONSTANTS.THRESHOLDS.EIGHT_HOURS_SECONDS;
-        return isBelow8h;
+        const validHours = this.calculateValidWorkHours(value);
+        return validHours < CONSTANTS.THRESHOLDS.EIGHT_HOURS_SECONDS;
       });
 
-    return dayEntries.map(([date, value]) => ({
-      date,
-      totalhrs: value.totalhrs || 0,
-      formattedHours: Utils.formatSecondsToHoursMinutes(value.totalhrs || 0)
-    }));
+    return dayEntries
+      .sort((a, b) => this.calculateValidWorkHours(a[1]) - this.calculateValidWorkHours(b[1]))
+      .map(([date, value]) => {
+        const validHours = this.calculateValidWorkHours(value);
+        return {
+          date,
+          totalhrs: validHours,
+          formattedHours: Utils.formatSecondsToHoursMinutes(validHours)
+        };
+      });
   }
 };

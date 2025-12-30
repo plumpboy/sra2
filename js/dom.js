@@ -27,9 +27,18 @@ export const DOM = {
       modalCancel: '#modalCancel',
       modalConfirm: '#modalConfirm',
       confirmationModalManual: '#confirmationModalManual',
+      modalSuccessMessageManual: '#modalSuccessMessageManual',
       modalSummaryManual: '#modalSummaryManual',
       modalTableBodyManual: '#modalTableBodyManual',
-      modalCancelManual: '#modalCancelManual'
+      modalCancelManual: '#modalCancelManual',
+      leaveRequestModal: '#leaveRequestModal',
+      leaveModalDate: '#leaveModalDate',
+      leaveType: '#leaveType',
+      leaveDuration: '#leaveDuration',
+      leavePeriodContainer: '#leavePeriodContainer',
+      leavePeriod: '#leavePeriod',
+      leaveModalCancel: '#leaveModalCancel',
+      leaveModalConfirm: '#leaveModalConfirm'
     };
 
     Object.entries(selectors).forEach(([key, selector]) => {

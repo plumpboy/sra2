@@ -20,7 +20,7 @@ export const TimeCalculator = {
     const [hours, minutes] = startWorkingTime.split(':').map(Number);
     const startTime = Utils.createTime(hours, minutes);
     const currentTime = new Date();
-
+    console.log('startTime', startTime);
     // Quick boundary checks first
     if (currentTime < WORK_SCHEDULE.workStart) {
       return [
@@ -43,31 +43,30 @@ export const TimeCalculator = {
     const isLateStart = effectiveStartTime > WORK_SCHEDULE.lateThreshold;
 
     // Calculate worked time based on current position relative to lunch
-    let workedMs;
-    if (currentTime <= WORK_SCHEDULE.lunchStart) {
-      // Before lunch
-      workedMs = currentTime - effectiveStartTime;
-    } else if (currentTime <= WORK_SCHEDULE.lunchEnd) {
-      // During lunch
-      workedMs = WORK_SCHEDULE.lunchStart - effectiveStartTime;
-    } else {
-      // After lunch
-      workedMs = currentTime - effectiveStartTime - WORK_SCHEDULE.breakDurationMs;
-    }
+    const startedBeforeLunch = effectiveStartTime < WORK_SCHEDULE.lunchStart;
+    const workEndPoint = currentTime > WORK_SCHEDULE.lunchEnd ? currentTime :
+                         currentTime > WORK_SCHEDULE.lunchStart ? WORK_SCHEDULE.lunchStart : currentTime;
+    const actualStart = startedBeforeLunch ? effectiveStartTime : WORK_SCHEDULE.lunchEnd;
+    const lunchDeduct = startedBeforeLunch && currentTime > WORK_SCHEDULE.lunchEnd ? WORK_SCHEDULE.breakDurationMs : 0;
+
+    let workedMs = workEndPoint - actualStart - lunchDeduct;
 
     workedMs = Math.max(0, workedMs);
-
     // Convert to hours and minutes
     const workedHrs = Math.floor(workedMs / CONSTANTS.TIME_CONVERSIONS.MILLISECONDS_PER_HOUR);
     const workedMins = Math.floor((workedMs % CONSTANTS.TIME_CONVERSIONS.MILLISECONDS_PER_HOUR) / CONSTANTS.TIME_CONVERSIONS.MILLISECONDS_PER_MINUTE);
+    console.log('workedMs', workedHrs, workedMins);
 
     // Calculate end time and max duration
     let endTime, maxDurationText;
 
     if (isLateStart) {
       // Calculate actual max possible time first
-      const lunchDeduction = effectiveStartTime < WORK_SCHEDULE.lunchStart ? WORK_SCHEDULE.breakDurationMs : 0;
-      const maxPossibleMs = WORK_SCHEDULE.workEnd - effectiveStartTime - lunchDeduction;
+      // If started during lunch break, actual work starts from lunch end
+      const actualWorkStart = (effectiveStartTime >= WORK_SCHEDULE.lunchStart && effectiveStartTime <= WORK_SCHEDULE.lunchEnd)
+        ? WORK_SCHEDULE.lunchEnd : effectiveStartTime;
+      const lunchDeduction = actualWorkStart < WORK_SCHEDULE.lunchStart ? WORK_SCHEDULE.breakDurationMs : 0;
+      const maxPossibleMs = WORK_SCHEDULE.workEnd - actualWorkStart - lunchDeduction;
       const maxPossibleHours = maxPossibleMs / CONSTANTS.TIME_CONVERSIONS.MILLISECONDS_PER_HOUR;
 
       // Determine working time cap based on available time
