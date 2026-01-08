@@ -17,7 +17,7 @@ export const AttendanceAnalyzer = {
   },
 
   // Calculate valid working hours clamped to work schedule (7:30-19:30)
-  // Note: totalhrs already has lunch break deducted
+  // And subtract lunch break (12:00-13:15) if applicable
   calculateValidWorkHours(value) {
     if (!value || value.totalhrs === undefined) return 0;
     if (!value.fromdate || !value.todate) return value.totalhrs;
@@ -33,12 +33,25 @@ export const AttendanceAnalyzer = {
     const workStart = CONSTANTS.WORK_HOURS.START.hours * 3600 + CONSTANTS.WORK_HOURS.START.minutes * 60;
     const workEnd = CONSTANTS.WORK_HOURS.END.hours * 3600 + CONSTANTS.WORK_HOURS.END.minutes * 60;
 
+    const lunchStart = CONSTANTS.WORK_HOURS.LUNCH_START.hours * 3600 + CONSTANTS.WORK_HOURS.LUNCH_START.minutes * 60;
+    const lunchEnd = CONSTANTS.WORK_HOURS.LUNCH_END.hours * 3600 + CONSTANTS.WORK_HOURS.LUNCH_END.minutes * 60;
+
     const effectiveStart = Math.max(checkIn, workStart);
     const effectiveEnd = Math.min(checkOut, workEnd);
 
     if (effectiveEnd <= effectiveStart) return 0;
 
-    return effectiveEnd - effectiveStart;
+    let duration = effectiveEnd - effectiveStart;
+
+    // Calculate overlap with lunch break
+    const lunchOverlapStart = Math.max(effectiveStart, lunchStart);
+    const lunchOverlapEnd = Math.min(effectiveEnd, lunchEnd);
+
+    if (lunchOverlapEnd > lunchOverlapStart) {
+      duration -= (lunchOverlapEnd - lunchOverlapStart);
+    }
+
+    return duration;
   },
 
   countEntriesBelow6h(regDetails) {
@@ -83,8 +96,8 @@ export const AttendanceAnalyzer = {
       const isWeekend = value.isWeekend || false;
 
       return totalHours >= CONSTANTS.THRESHOLDS.SIX_HOURS_SECONDS &&
-             totalHours < CONSTANTS.THRESHOLDS.EIGHT_HOURS_SECONDS &&
-             !isHoliday && !isWeekend;
+        totalHours < CONSTANTS.THRESHOLDS.EIGHT_HOURS_SECONDS &&
+        !isHoliday && !isWeekend;
     }).length;
   },
 
@@ -109,7 +122,7 @@ export const AttendanceAnalyzer = {
   getTop3MinDatesByTotalHrs(data, requestDays) {
     const regDetails = data.regDetails;
     const requestedDates = requestDays
-      .filter(item => item.status != 2 && item.status!= 0)
+      .filter(item => item.status != 2 && item.status != 0)
       .map(day => day.startDate || day);
 
     // Get today's date in the same format as the data
