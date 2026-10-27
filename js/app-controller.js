@@ -14,7 +14,8 @@ import { CONSTANTS } from './constants.js';
 // Main Application Controller
 export class AppController {
   constructor() {
-    this.datesToLog = [];
+    this.autoLogPlan = null;
+    this.credentials = null;
   }
 
   async initialize() {
@@ -68,24 +69,46 @@ export class AppController {
     DOM.get('modalCancel')?.addEventListener('click', () => UIManager.hideConfirmationModal());
     DOM.get('modalCancelManual')?.addEventListener('click', () => UIManager.hideConfirmationModalManual());
 
-    DOM.get('modalConfirm')?.addEventListener('click', async () => {
-      const limitReached = await RequestLimitManager.checkAndHandleRequestLimit();
-      if (limitReached) return;
+    DOM.get('modalConfirm')?.addEventListener('click', () => this.confirmAutoLog());
+  }
 
-      UIManager.hideConfirmationModal();
-      UIManager.showMessage('Logging Attendance...', 'success');
+  async confirmAutoLog() {
+    const plan = this.autoLogPlan;
+    if (!plan) return;
 
-      if (this.datesToLog.length > 0) {
-        const result = await AttendanceLogger.logAttendanceForDates(this.datesToLog);
+    const leaveTypeId = DOM.get('autoLeaveType')?.value;
+    if (plan.leaveDays.length > 0 && !leaveTypeId) {
+      UIManager.showMessage('Please select a leave type', 'error');
+      return;
+    }
 
-        if (result.success) {
-          UIManager.showMessage('Attendance logged successfully! Refreshing...', 'success');
-          setTimeout(() => window.location.reload(), CONSTANTS.REFRESH_DELAY);
-        } else {
-          UIManager.showMessage('Failed to log Attendance. Please try again.', 'error');
-        }
-      }
-    });
+    UIManager.setButtonState('modalConfirm', true);
+    const failures = [];
+
+    if (plan.attendanceDays.length > 0) {
+      UIManager.showAutoLogProgress('Logging Attendance...');
+      const result = await AttendanceLogger.logAttendanceForDates(plan.attendanceDays.map(day => day.date));
+      if (!result.success) failures.push(`Attendance: ${result.error}`);
+    }
+
+    for (const day of plan.leaveDays) {
+      UIManager.showAutoLogProgress(`Applying leave for ${day.date}...`);
+      const result = await AttendanceLogger.applyLeave(this.credentials, {
+        leaveTypeId,
+        date: day.date,
+        duration: day.leave.duration,
+        period: day.leave.period
+      });
+      if (!result.success) failures.push(`${day.date}: ${result.error}`);
+    }
+
+    UIManager.hideConfirmationModal();
+    if (failures.length === 0) {
+      UIManager.showMessage('Attendance and leave submitted successfully! Refreshing...', 'success');
+      setTimeout(() => window.location.reload(), CONSTANTS.REFRESH_DELAY);
+    } else {
+      UIManager.showMessage(`Some requests failed:<br>${failures.join('<br>')}`, 'error', true);
+    }
   }
 
   async calculateTime() {
@@ -163,18 +186,22 @@ export class AppController {
       const data2 = await Storage.get('data2');
       const requestDays = data2?.list || [];
 
-      const datesToLog = AttendanceAnalyzer.getTop3MinDatesByTotalHrs(data1, requestDays);
+      // Attendance requests go to the costliest days, leave covers the rest with minimum days
+      const plan = AttendanceAnalyzer.planLateDays(data1, requestDays);
 
-      if (datesToLog.length === 0) {
-        UIManager.showMessage('No dates to log Attendance for', 'error');
+      if (plan.attendanceDays.length === 0 && plan.leaveDays.length === 0) {
+        const message = plan.lateDays.length > 0
+          ? `Nothing to do: ${plan.lateDays.length} late day(s) will be auto settled to 8h`
+          : 'No dates to log Attendance for';
+        UIManager.showMessage(message, plan.lateDays.length > 0 ? 'success' : 'error');
         return;
       }
 
-      this.datesToLog = datesToLog;
-      
-      // Check if limit is reached
-      const limitReached = await RequestLimitManager.checkAndHandleRequestLimit();
-      UIManager.showConfirmationModal(datesToLog, data1, limitReached);
+      this.autoLogPlan = plan;
+      this.credentials = await AuthManager.getCredentials();
+
+      await RequestLimitManager.checkAndHandleRequestLimit();
+      UIManager.showConfirmationModal(plan, data1, this.credentials);
 
     } catch (error) {
       console.error('Error in auto log Attendance:', error);
@@ -195,9 +222,9 @@ export class AppController {
       const data2 = await Storage.get('data2');
       const requestDays = data2?.list || [];
       console.log('data2', data2)
-      const daysBelow8h = AttendanceAnalyzer.getDaysBelow8h(data1, requestDays);
+      const plan = AttendanceAnalyzer.planLateDays(data1, requestDays);
 
-      if (daysBelow8h.length === 0) {
+      if (plan.attendanceDays.length + plan.leaveDays.length + plan.lateDays.length === 0) {
         UIManager.showMessage('No days with less than 8 hours found.', 'error');
         return;
       }
@@ -209,7 +236,7 @@ export class AppController {
       const limitReached = await RequestLimitManager.checkAndHandleRequestLimit();
 
       UIManager.showConfirmationModalManual(
-        daysBelow8h.map(day => day.date),
+        plan,
         data1,
         AttendanceLogger.logAttendanceForDates.bind(AttendanceLogger),
         limitReached,

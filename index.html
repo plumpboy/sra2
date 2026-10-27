@@ -689,12 +689,17 @@
                   <tr>
                     <th>Date</th>
                     <th>Current Hours</th>
-                    <th>New Hours</th>
+                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody id="modalTableBody">
                 </tbody>
               </table>
+              <div id="autoLeaveTypeContainer" style="display: none; margin-top: 16px;">
+                <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #495057;">Leave Type (for leave days)</label>
+                <select id="autoLeaveType" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;"></select>
+              </div>
+              <div id="autoLogProgress" style="display: none; margin-top: 12px; font-size: 13px; color: #495057;"></div>
             </div>
             <div class="modal-buttons">
               <button id="modalCancel" class="modal-button cancel">Cancel</button>
@@ -715,7 +720,7 @@
                   <tr>
                     <th>Date</th>
                     <th>Current Hours</th>
-                    <th>New Hours</th>
+                    <th>Suggested</th>
                     <th style="text-align: center;">Action</th>
                   </tr>
                 </thead>

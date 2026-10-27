@@ -23,5 +23,34 @@ export const AttendanceLogger = {
       console.error('Error logging Attendance:', error);
       return { success: false, error: error.message };
     }
+  },
+
+  getLeaveErrorMessage(response) {
+    const errorObj = Array.isArray(response) ? response[0] : response;
+    const message = errorObj?.message ?? errorObj?.error;
+    if (!message) return 'Unknown error';
+    return typeof message === 'object' ? Object.values(message).join(', ') : message;
+  },
+
+  async applyLeave(credentials, leaveData) {
+    try {
+      const response = await ApiService.applyLeave(
+        credentials.hrId,
+        credentials.csrfToken,
+        credentials.userId,
+        credentials.loginUserZUID,
+        leaveData
+      );
+
+      // Success is code 7000 - handle both object and array response
+      const responseData = Array.isArray(response) ? response[0] : response;
+      if (responseData?.code === 7000 || responseData?.pkId || response?.status === 'success') {
+        return { success: true };
+      }
+      return { success: false, error: this.getLeaveErrorMessage(response) };
+    } catch (error) {
+      console.error('Error applying leave:', error);
+      return { success: false, error: error.message };
+    }
   }
 };

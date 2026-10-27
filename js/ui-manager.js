@@ -2,6 +2,17 @@ import { CONSTANTS } from './constants.js';
 import { DOM } from './dom.js';
 import { Utils } from './utils.js';
 import { ApiService } from './api-service.js';
+import { AttendanceLogger } from './attendance-logger.js';
+
+const LEAVE_LABELS = {
+  full: 'Full day',
+  half: 'Half day',
+  quarter: 'Quarter day',
+  '1st_half': '1st Half',
+  '2nd_half': '2nd Half',
+  '1st_quarter': '1st Quarter',
+  '4th_quarter': '4th Quarter'
+};
 
 // UI Management and User Interface Operations
 export class UIManager {
@@ -107,38 +118,98 @@ export class UIManager {
     }
   }
 
-  static showConfirmationModal(datesToLog, data1, limitReached = false) {
+  static formatLeave(leave) {
+    const period = leave.period ? ` (${LEAVE_LABELS[leave.period]})` : '';
+    return `${LEAVE_LABELS[leave.duration]}${period}`;
+  }
+
+  static formatPlanAction(day, plan) {
+    if (plan.attendanceDays.includes(day)) return 'Log Attendance (8h)';
+    if (plan.lateDays.includes(day)) return 'No action - late day, auto settled to 8h';
+    const settleNote = day.settlesAsLateDay ? ' → 6h+, late day auto settled to 8h' : '';
+    return `Leave: ${this.formatLeave(day.leave)}${settleNote}`;
+  }
+
+  static formatPlanSummary(plan) {
+    return `Suggested plan uses <strong>${plan.totalLeaveDays}</strong> leave day(s) and ${plan.lateDaysUsed}/${CONSTANTS.MAX_LATE_DAYS} late day(s).`;
+  }
+
+  static async loadLeaveTypes(select, credentials) {
+    select.innerHTML = '<option value="">Loading...</option>';
+    select.disabled = true;
+
+    try {
+      if (!credentials) {
+        select.innerHTML = '<option value="">Error: No credentials</option>';
+        return;
+      }
+      const response = await ApiService.getLeaveTypes(credentials.hrId, credentials.csrfToken, credentials.userId);
+      const options = response.leave_data?.Options;
+      if (options && options.length > 0) {
+        select.innerHTML = options.map(option => {
+          // Decode HTML entities in Value
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = option.Value;
+          const decodedValue = tempDiv.textContent || tempDiv.innerText;
+          return `<option value="${option.Id}">${decodedValue}</option>`;
+        }).join('');
+        select.disabled = false;
+      } else {
+        select.innerHTML = '<option value="">No leave types available</option>';
+      }
+    } catch (error) {
+      console.error('Failed to load leave types:', error);
+      select.innerHTML = '<option value="">Failed to load leave types</option>';
+    }
+  }
+
+  static showConfirmationModal(plan, data1, credentials) {
     const modal = DOM.get('confirmationModal');
     const summary = DOM.get('modalSummary');
     const tableBody = DOM.get('modalTableBody');
-    const confirmButton = DOM.get('modalConfirm');
 
     if (!modal || !summary || !tableBody) return;
 
-    if (limitReached) {
-      summary.innerHTML = `<span style="color: #e74c3c; font-weight: bold;">⚠️ You've reached your request limit for this month</span><br><br>You are about to log Attendance for ${datesToLog.length} date(s):`;
-      this.setButtonState('modalConfirm', true, 'Request limit reached');
-    } else {
-      summary.textContent = `You are about to log Attendance for ${datesToLog.length} date(s):`;
-      this.setButtonState('modalConfirm', false);
+    const { attendanceDays, leaveDays, lateDays } = plan;
+    let summaryHtml = `You are about to log Attendance for ${attendanceDays.length} date(s) and apply leave for ${leaveDays.length} date(s). ${this.formatPlanSummary(plan)}`;
+    if (plan.remainingRequests === 0) {
+      summaryHtml = `<span style="color: #e74c3c; font-weight: bold;">⚠️ You've reached your request limit for this month</span><br><br>${summaryHtml}`;
     }
+    summary.innerHTML = summaryHtml;
+    this.setButtonState('modalConfirm', false);
 
     tableBody.innerHTML = '';
 
-    datesToLog.forEach(date => {
+    const rows = [...attendanceDays, ...leaveDays, ...lateDays]
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    rows.forEach(day => {
       const row = document.createElement('tr');
-      const currentHours = data1.regDetails[date]?.totalhrs || 0;
+      const currentHours = data1.regDetails[day.date]?.totalhrs || 0;
       const formattedCurrentHours = Utils.formatSecondsToHoursMinutes(currentHours);
 
       row.innerHTML = `
-        <td>${date}</td>
+        <td>${day.date}</td>
         <td>${formattedCurrentHours}</td>
-        <td class="will-log">8h</td>
+        <td class="will-log">${this.formatPlanAction(day, plan)}</td>
       `;
       tableBody.appendChild(row);
     });
 
+    DOM.setDisplay('autoLogProgress', 'none');
+    DOM.setDisplay('autoLeaveTypeContainer', leaveDays.length > 0 ? 'block' : 'none');
+    if (leaveDays.length > 0) {
+      this.loadLeaveTypes(DOM.get('autoLeaveType'), credentials);
+    }
+
     modal.style.display = 'flex';
+  }
+
+  static showAutoLogProgress(text) {
+    const progress = DOM.get('autoLogProgress');
+    if (!progress) return;
+    progress.textContent = text;
+    progress.style.display = 'block';
   }
 
   static hideConfirmationModal() {
@@ -146,7 +217,7 @@ export class UIManager {
     if (modal) modal.style.display = 'none';
   }
 
-  static showConfirmationModalManual(datesToLog, data1, onLogCallback, limitReached = false, credentials = null) {
+  static showConfirmationModalManual(plan, data1, onLogCallback, limitReached = false, credentials = null) {
     const modal = DOM.get('confirmationModalManual');
     const summary = DOM.get('modalSummaryManual');
     const tableBody = DOM.get('modalTableBodyManual');
@@ -160,15 +231,23 @@ export class UIManager {
       successMessageEl.textContent = '';
     }
 
+    // Rows in date order, each carrying its suggested action from the optimal plan
+    const days = [...plan.attendanceDays, ...plan.leaveDays, ...plan.lateDays]
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+    const planText = this.formatPlanSummary(plan);
+
     if (limitReached) {
-      summary.innerHTML = `<span style="color: #e74c3c; font-weight: bold;">⚠️ You've reached your request limit for this month</span><br><br>Select days to log Attendance (${datesToLog.length} days available):`;
+      summary.innerHTML = `<span style="color: #e74c3c; font-weight: bold;">⚠️ You've reached your request limit for this month</span><br><br>Apply leave for days below 8h (${days.length} days available). ${planText}`;
     } else {
-      summary.textContent = `Select days to log Attendance (${datesToLog.length} days available):`;
+      summary.innerHTML = `Select days to log Attendance or apply leave (${days.length} days available). ${planText}`;
     }
 
     tableBody.innerHTML = '';
 
-    datesToLog.forEach(date => {
+    days.forEach(day => {
+      const { date } = day;
+      // Pre-fill the leave form with the planned leave, or the full 8h leave when the plan needs none
+      const leave = day.leave || day.fullLeave;
       const row = document.createElement('tr');
       const currentHours = data1.regDetails[date]?.totalhrs || 0;
       const formattedCurrentHours = Utils.formatSecondsToHoursMinutes(currentHours);
@@ -176,16 +255,17 @@ export class UIManager {
       const buttonStyle = limitReached
         ? 'padding: 4px 8px; font-size: 12px; opacity: 0.5; cursor: not-allowed;'
         : 'padding: 4px 8px; font-size: 12px;';
+      const leaveButtonStyle = 'padding: 4px 8px; font-size: 12px; background-color: #007bff; color: white; border: none;';
 
       row.innerHTML = `
         <td>${date}</td>
         <td>${formattedCurrentHours}</td>
-        <td class="will-log">8h</td>
+        <td class="will-log">${this.formatPlanAction(day, plan)}</td>
         <td style="display: flex; gap: 4px;">
           <button class="modal-button confirm log-btn" style="${buttonStyle}" data-date="${date}" ${limitReached ? 'disabled title="Request limit reached"' : ''}>
             Log Attandance
           </button>
-          <button class="modal-button leave-btn" style="${buttonStyle} background-color: #007bff; color: white; border: none;" data-date="${date}" ${limitReached ? 'disabled title="Request limit reached"' : ''}>
+          <button class="modal-button leave-btn" style="${leaveButtonStyle}" data-date="${date}">
             Apply Leave
           </button>
         </td>
@@ -215,10 +295,11 @@ export class UIManager {
           }
         });
 
-        leaveButton.addEventListener('click', () => {
-          UIManager.showLeaveModal(date, logButton, leaveButton, credentials);
-        });
       }
+
+      leaveButton.addEventListener('click', () => {
+        UIManager.showLeaveModal(date, logButton, leaveButton, credentials, leave);
+      });
 
       tableBody.appendChild(row);
     });
@@ -231,7 +312,7 @@ export class UIManager {
     if (modal) modal.style.display = 'none';
   }
 
-  static async showLeaveModal(date, logButton, leaveButton, credentials) {
+  static async showLeaveModal(date, logButton, leaveButton, credentials, suggestedLeave = null) {
     const modal = document.getElementById('leaveRequestModal');
     const dateDisplay = document.getElementById('leaveModalDate');
     const leaveTypeSelect = document.getElementById('leaveType');
@@ -266,44 +347,8 @@ export class UIManager {
       leaveModalError.style.border = '1px solid #f5c6cb';
     }
 
-    // Reset form
-    newDurationSelect.value = 'full';
-    periodSelect.disabled = true;
-    periodSelect.innerHTML = '<option value="">N/A</option>';
-    reasonTextarea.value = '';
-
-    // Load leave types from API
-    leaveTypeSelect.innerHTML = '<option value="">Loading...</option>';
-    leaveTypeSelect.disabled = true;
-
-    try {
-      if (credentials) {
-        const response = await ApiService.getLeaveTypes(credentials.hrId, credentials.csrfToken, credentials.userId);
-        const options = response.leave_data?.Options;
-        if (options && options.length > 0) {
-          leaveTypeSelect.innerHTML = options.map(option => {
-            // Decode HTML entities in Value
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = option.Value;
-            const decodedValue = tempDiv.textContent || tempDiv.innerText;
-            return `<option value="${option.Id}">${decodedValue}</option>`;
-          }).join('');
-          leaveTypeSelect.disabled = false;
-        } else {
-          leaveTypeSelect.innerHTML = '<option value="">No leave types available</option>';
-        }
-      } else {
-        leaveTypeSelect.innerHTML = '<option value="">Error: No credentials</option>';
-      }
-    } catch (error) {
-      console.error('Failed to load leave types:', error);
-      leaveTypeSelect.innerHTML = '<option value="">Failed to load leave types</option>';
-    }
-
-    // Handle duration change
-    newDurationSelect.addEventListener('change', (e) => {
-      const duration = e.target.value;
-
+    // Duration change refreshes the period options
+    const updatePeriodOptions = (duration) => {
       if (duration === 'full') {
         periodSelect.disabled = true;
         periodSelect.innerHTML = '<option value="">N/A</option>';
@@ -322,7 +367,17 @@ export class UIManager {
           <option value="4th_quarter">4th Quarter</option>
         `;
       }
-    });
+    };
+    newDurationSelect.addEventListener('change', (e) => updatePeriodOptions(e.target.value));
+
+    // Reset form, pre-filled with the minimal leave that covers the day
+    newDurationSelect.value = suggestedLeave?.duration || 'full';
+    updatePeriodOptions(newDurationSelect.value);
+    if (suggestedLeave?.period) periodSelect.value = suggestedLeave.period;
+    reasonTextarea.value = '';
+
+    // Load leave types from API
+    await this.loadLeaveTypes(leaveTypeSelect, credentials);
 
     // Handle cancel
     newCancelBtn.addEventListener('click', () => {
@@ -347,69 +402,25 @@ export class UIManager {
       logButton.disabled = true;
       leaveButton.disabled = true;
 
-      try {
-        const response = await ApiService.applyLeave(
-          credentials.hrId,
-          credentials.csrfToken,
-          credentials.userId,
-          credentials.loginUserZUID,
-          {
-            leaveTypeId,
-            date,
-            reason,
-            duration,
-            period
-          }
-        );
+      const result = await AttendanceLogger.applyLeave(credentials, { leaveTypeId, date, reason, duration, period });
+      const leaveModalError = document.getElementById('leaveModalError');
 
-        // Check for success (code 7000) - handle both object and array response
-        const responseData = Array.isArray(response) ? response[0] : response;
-        if (responseData?.code === 7000 || responseData?.pkId || response.status === 'success') {
-          leaveButton.textContent = 'Applied';
-          leaveButton.style.backgroundColor = '#28a745';
-          // Show success message in leave modal
-          const leaveModalError = document.getElementById('leaveModalError');
-          if (leaveModalError) {
-            leaveModalError.textContent = `Leave applied successfully for ${date} (${leaveTypeName}). Refreshing...`;
-            leaveModalError.style.display = 'block';
-            leaveModalError.style.backgroundColor = '#d4edda';
-            leaveModalError.style.color = '#155724';
-            leaveModalError.style.border = '1px solid #c3e6cb';
-          }
-          setTimeout(() => window.location.reload(), CONSTANTS.REFRESH_DELAY);
-        } else {
-          // Handle error response (array format or object format)
-          let errorMsg = 'Unknown error';
-          if (Array.isArray(response) && response.length > 0) {
-            const errorObj = response[0];
-            if (errorObj.message) {
-              errorMsg = typeof errorObj.message === 'object'
-                ? Object.values(errorObj.message).join(', ')
-                : errorObj.message;
-            }
-          } else if (response.message) {
-            errorMsg = typeof response.message === 'object'
-              ? Object.values(response.message).join(', ')
-              : response.message;
-          } else if (response.error) {
-            errorMsg = response.error;
-          }
-          // Show error in leave modal
-          const leaveModalError = document.getElementById('leaveModalError');
-          if (leaveModalError) {
-            leaveModalError.textContent = errorMsg;
-            leaveModalError.style.display = 'block';
-          }
-          newConfirmBtn.disabled = false;
-          newConfirmBtn.textContent = 'Apply Leave';
-          logButton.disabled = false;
-          leaveButton.disabled = false;
-        }
-      } catch (error) {
-        console.error('Error applying leave:', error);
-        const leaveModalError = document.getElementById('leaveModalError');
+      if (result.success) {
+        leaveButton.textContent = 'Applied';
+        leaveButton.style.backgroundColor = '#28a745';
+        // Show success message in leave modal
         if (leaveModalError) {
-          leaveModalError.textContent = `Error: ${error.message}`;
+          leaveModalError.textContent = `Leave applied successfully for ${date} (${leaveTypeName}). Refreshing...`;
+          leaveModalError.style.display = 'block';
+          leaveModalError.style.backgroundColor = '#d4edda';
+          leaveModalError.style.color = '#155724';
+          leaveModalError.style.border = '1px solid #c3e6cb';
+        }
+        setTimeout(() => window.location.reload(), CONSTANTS.REFRESH_DELAY);
+      } else {
+        // Show error in leave modal
+        if (leaveModalError) {
+          leaveModalError.textContent = result.error;
           leaveModalError.style.display = 'block';
         }
         newConfirmBtn.disabled = false;
