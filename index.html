@@ -6,6 +6,11 @@
   <title>Working Time Calculator</title>
   <style>
     /* Container and responsive layout */
+    html,
+    body {
+      width: 760px;
+    }
+
     body {
       margin: 0;
       padding: 0;
@@ -15,8 +20,6 @@
 
     /* Tab Navigation Styles */
     .tab-container {
-      min-width: 700px;
-      max-width: 800px;
       width: 100%;
       background-color: white;
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
@@ -148,94 +151,6 @@
     #time-range {
       font-size: 15px;
       text-align: center;
-    }
-
-    /* Responsive design */
-    @media (max-width: 600px) {
-      .tab-container {
-        min-width: 400px;
-        margin: 0 8px;
-        border-radius: 6px;
-      }
-
-      .container {
-        padding: 16px;
-      }
-
-      .tab-button {
-        padding: 12px 16px;
-        font-size: 14px;
-      }
-
-      .main-table th,
-      .main-table td {
-        padding: 10px 12px;
-        font-size: 13px;
-      }
-
-      .main-table .label {
-        width: 50%;
-      }
-
-      .main-table .value {
-        width: 50%;
-      }
-
-      .about-content {
-        padding: 16px;
-      }
-
-      .about-header h2 {
-        font-size: 22px;
-      }
-
-      .about-section h3 {
-        font-size: 16px;
-      }
-
-      .modal-overlay {
-        padding: 16px;
-      }
-
-      .modal-content {
-        padding: 20px;
-        border-radius: 8px;
-      }
-
-      .modal-table th,
-      .modal-table td {
-        padding: 8px;
-        font-size: 13px;
-      }
-
-      .qr-container {
-        flex-direction: column;
-        gap: 16px;
-      }
-
-      .qr-info {
-        text-align: center;
-      }
-
-      .qr-image {
-        width: 100px;
-        height: 100px;
-      }
-
-      .payment-methods {
-        justify-content: center;
-      }
-    }
-
-    @media (max-width: 480px) {
-
-      .container {
-        padding: 12px;
-      }
-
-      .about-content {
-        padding: 12px;
-      }
     }
 
     /* Message styles */
@@ -382,6 +297,16 @@
     .modal-table td {
       padding: 12px;
       /*border-bottom: 1px solid #eee;*/
+    }
+
+    .modal-table .row-actions {
+      display: flex;
+      gap: 4px;
+      justify-content: center;
+    }
+
+    .modal-table .row-actions button {
+      white-space: nowrap;
     }
 
     .modal-table .will-log {
@@ -787,7 +712,7 @@
       <div class="about-content">
         <div class="about-header">
           <h2>Working Time Calculator</h2>
-          <p class="version">Version 1.0</p>
+          <p class="version">Version 1.0.1</p>
         </div>
 
         <div class="about-section">

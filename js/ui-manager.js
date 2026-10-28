@@ -261,13 +261,15 @@ export class UIManager {
         <td>${date}</td>
         <td>${formattedCurrentHours}</td>
         <td class="will-log">${this.formatPlanAction(day, plan)}</td>
-        <td style="display: flex; gap: 4px;">
+        <td>
+          <div class="row-actions">
           <button class="modal-button confirm log-btn" style="${buttonStyle}" data-date="${date}" ${limitReached ? 'disabled title="Request limit reached"' : ''}>
-            Log Attandance
+            Log Attendance
           </button>
           <button class="modal-button leave-btn" style="${leaveButtonStyle}" data-date="${date}">
             Apply Leave
           </button>
+          </div>
         </td>
       `;
 
@@ -290,7 +292,7 @@ export class UIManager {
           } else {
             logButton.disabled = false;
             leaveButton.disabled = false;
-            logButton.textContent = 'Log';
+            logButton.textContent = 'Log Attendance';
             UIManager.showMessage(`❌ Failed to log ${date}: ${result.error}`, 'error');
           }
         });
