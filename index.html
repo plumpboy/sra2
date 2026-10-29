@@ -93,6 +93,7 @@
     /* Button styles */
     #calculateTime,
     #goTozoho,
+    #grantAccess,
     #autoLogAttendance,
     #manualLogAttendance {
       width: 100%;
@@ -115,7 +116,8 @@
       background-color: #45a049;
     }
 
-    #goTozoho {
+    #goTozoho,
+    #grantAccess {
       background-color: #007bff;
       width: auto !important;
       padding: 8px 16px !important;
@@ -123,7 +125,8 @@
       display: block;
     }
 
-    #goTozoho:hover {
+    #goTozoho:hover,
+    #grantAccess:hover {
       background-color: #0056b3;
     }
 
@@ -177,12 +180,14 @@
     }
 
     /* Zoho section specific styling */
-    #goToZohoSection {
+    #goToZohoSection,
+    #grantAccessSection {
       margin: 15px 0;
       padding: 16px;
     }
 
-    #goToZohoSection div {
+    #goToZohoSection div,
+    #grantAccessSection div {
       margin-bottom: 12px;
       font-size: 14px;
     }
@@ -307,6 +312,11 @@
 
     .modal-table .row-actions button {
       white-space: nowrap;
+    }
+
+    .modal-table .requested {
+      color: #6c757d;
+      font-weight: 600;
     }
 
     .modal-table .will-log {
@@ -504,6 +514,20 @@
       font-weight: 500;
     }
 
+    .donate-modal {
+      max-width: 360px;
+      text-align: center;
+    }
+
+    .donate-modal .qr-image {
+      width: 180px;
+      height: 180px;
+    }
+
+    .donate-modal .modal-buttons {
+      justify-content: center;
+    }
+
     .donate-note {
       margin-top: 16px;
       padding: 12px;
@@ -589,13 +613,18 @@
           
           <!-- Month transition note -->
           <div id="monthTransitionNote" class="message" style="display: none; background-color: #e8f4f8; color: #2c5aa0; border: 1px solid #bee5eb; margin-top: 10px;">
-            📅 Current statistics are based on last month. They will be recalculated for the new month starting from the 23rd.
+            📅 Current statistics are based on last month. They will be recalculated for the new month starting from the 22nd.
           </div>
         </div>
 
         <div id="goToZohoSection" class="message error" style="display: none;">
           <div style="margin-bottom: 10px;">You must login to Zoho People to use this extension.</div>
           <button id="goTozoho" style="width: auto; padding: 6px 12px; margin: 0;">Go to Zoho</button>
+        </div>
+
+        <div id="grantAccessSection" class="message error" style="display: none;">
+          <div style="margin-bottom: 10px;">Allow access to Zoho People so the extension works from any tab.</div>
+          <button id="grantAccess" style="width: auto; padding: 6px 12px; margin: 0;">Grant access</button>
         </div>
 
         <div class="auto-log">
@@ -659,6 +688,18 @@
           </div>
         </div>
 
+        <!-- Donate Reminder Modal -->
+        <div id="donateModal" class="modal-overlay">
+          <div class="modal-content donate-modal">
+            <h3 class="modal-header">☕ Enjoying Working Time Calculator?</h3>
+            <p class="modal-summary">If this extension saves you time, please consider buying me a coffee!</p>
+            <img src="qr.png" alt="Donation QR Code" class="qr-image" />
+            <div class="modal-buttons">
+              <button id="donateModalClose" class="modal-button cancel">Maybe later</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Leave Request Modal -->
         <div id="leaveRequestModal" class="modal-overlay">
           <div class="modal-content" style="max-width: 400px;">
@@ -712,7 +753,7 @@
       <div class="about-content">
         <div class="about-header">
           <h2>Working Time Calculator</h2>
-          <p class="version">Version 1.0.1</p>
+          <p class="version">Version 1.0.2</p>
         </div>
 
         <div class="about-section">

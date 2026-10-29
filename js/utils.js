@@ -9,12 +9,29 @@ export const Utils = {
     return `${day}-${month}-${year}`;
   },
 
+  // Parse dates like "23-Oct-2026" (new Date() does not parse this format in every browser)
+  parseCustomDate(dateStr) {
+    const [day, month, year] = dateStr.split('-');
+    const monthIndex = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].indexOf(month);
+    return new Date(Number(year), monthIndex, Number(day));
+  },
+
+  // Current time in Vietnam (UTC+7) whatever the computer's timezone: getDate(), getHours()... return UTC+7 values
+  nowUTC7() {
+    const shifted = new Date(Date.now() + 7 * CONSTANTS.TIME_CONVERSIONS.MILLISECONDS_PER_HOUR);
+    return new Date(
+      shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate(),
+      shifted.getUTCHours(), shifted.getUTCMinutes(), shifted.getUTCSeconds()
+    );
+  },
+
+  // The previous month (21st - 20th) is shown until the end of the 21st (UTC+7), the new one from the 22nd
   getDateRange() {
-    const today = new Date();
+    const today = this.nowUTC7();
     const dayOfMonth = today.getDate();
     let toDate = this.formatDateToCustom(today);
     let fromDate;
-    if (dayOfMonth < 23) {
+    if (dayOfMonth < 22) {
       const previousMonth = new Date(today.getFullYear(), today.getMonth() - 1, 21);
       fromDate = this.formatDateToCustom(previousMonth);
       if (dayOfMonth <= 20) {

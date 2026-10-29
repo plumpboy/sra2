@@ -46,7 +46,9 @@ export const TimeCalculator = {
     const startedBeforeLunch = effectiveStartTime < WORK_SCHEDULE.lunchStart;
     const workEndPoint = currentTime > WORK_SCHEDULE.lunchEnd ? currentTime :
                          currentTime > WORK_SCHEDULE.lunchStart ? WORK_SCHEDULE.lunchStart : currentTime;
-    const actualStart = startedBeforeLunch ? effectiveStartTime : WORK_SCHEDULE.lunchEnd;
+    // Started during lunch: work starts at lunch end. Started after lunch: work starts at check-in
+    const actualStart = startedBeforeLunch ? effectiveStartTime :
+                        effectiveStartTime > WORK_SCHEDULE.lunchEnd ? effectiveStartTime : WORK_SCHEDULE.lunchEnd;
     const lunchDeduct = startedBeforeLunch && currentTime > WORK_SCHEDULE.lunchEnd ? WORK_SCHEDULE.breakDurationMs : 0;
 
     let workedMs = workEndPoint - actualStart - lunchDeduct;
@@ -76,7 +78,7 @@ export const TimeCalculator = {
         // Cap at 4 hours
         workingCapHours = 4;
         workingCapMs = 4 * CONSTANTS.TIME_CONVERSIONS.MILLISECONDS_PER_HOUR;
-        endTime = new Date(effectiveStartTime.getTime() + workingCapMs + lunchDeduction);
+        endTime = new Date(actualWorkStart.getTime() + workingCapMs + lunchDeduction);
 
         const maxHrs = Math.floor(maxPossibleHours);
         const maxMins = Math.floor((maxPossibleMs % CONSTANTS.TIME_CONVERSIONS.MILLISECONDS_PER_HOUR) / CONSTANTS.TIME_CONVERSIONS.MILLISECONDS_PER_MINUTE);
@@ -86,7 +88,7 @@ export const TimeCalculator = {
         // Cap at 2 hours
         workingCapHours = 2;
         workingCapMs = 2 * CONSTANTS.TIME_CONVERSIONS.MILLISECONDS_PER_HOUR;
-        endTime = new Date(effectiveStartTime.getTime() + workingCapMs + lunchDeduction);
+        endTime = new Date(actualWorkStart.getTime() + workingCapMs + lunchDeduction);
 
         const maxHrs = Math.floor(maxPossibleHours);
         const maxMins = Math.floor((maxPossibleMs % CONSTANTS.TIME_CONVERSIONS.MILLISECONDS_PER_HOUR) / CONSTANTS.TIME_CONVERSIONS.MILLISECONDS_PER_MINUTE);
@@ -107,7 +109,7 @@ export const TimeCalculator = {
       } else {
         workingCapHours = 6;
         workingCapMs = 6 * CONSTANTS.TIME_CONVERSIONS.MILLISECONDS_PER_HOUR;
-        endTime = new Date(effectiveStartTime.getTime() + workingCapMs + lunchDeduction);
+        endTime = new Date(actualWorkStart.getTime() + workingCapMs + lunchDeduction);
 
         const maxHrs = Math.floor(maxPossibleMs / CONSTANTS.TIME_CONVERSIONS.MILLISECONDS_PER_HOUR);
         const maxMins = Math.floor((maxPossibleMs % CONSTANTS.TIME_CONVERSIONS.MILLISECONDS_PER_HOUR) / CONSTANTS.TIME_CONVERSIONS.MILLISECONDS_PER_MINUTE);

@@ -59,6 +59,26 @@ export const ApiService = {
     );
   },
 
+  async getLeaveApplications(hrId, csrfToken, fromDate, toDate, userId) {
+    return await this.makeRequest(
+      `https://people.zoho.com/${hrId}/leave_view_actions.zp`,
+      {
+        key: 'applications_view',
+        conreqcsr: csrfToken,
+        viewMode: 1,
+        from: fromDate,
+        to: toDate,
+        typeofleave: -1, // all leave types
+        employee: JSON.stringify([userId]),
+        status: 20, // all statuses
+        sortType: 1,
+        sortBy: 3,
+        sIndx: 1,
+        limit: 100
+      }
+    );
+  },
+
   async logAttendance(hrId, csrfToken, date, userId) {
     return await this.makeRequest(
       `https://people.zoho.com/${hrId}/AttendanceAction.zp`,

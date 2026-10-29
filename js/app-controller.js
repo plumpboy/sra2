@@ -22,16 +22,41 @@ export class AppController {
     DOM.init();
     this.updateReportDate();
     await this.setupEventListeners();
+
+    if (!(await ChromeAPI.hasHostPermissions())) {
+      UIManager.showGrantAccessInterface();
+      return;
+    }
     await this.calculateTime();
+    await this.showDonateReminder();
+  }
+
+  // Donate reminder pops up on the Home tab once per day
+  async showDonateReminder() {
+    const today = Utils.formatDateToCustom(new Date());
+    if (await Storage.get('donateReminderShownOn') === today) return;
+
+    await Storage.set({ donateReminderShownOn: today });
+    UIManager.showDonateModal();
+  }
+
+  async grantAccess() {
+    // Firefox may close the popup while its permission prompt is shown; reopening it then works from any tab
+    const granted = await ChromeAPI.requestHostPermissions();
+    if (granted) {
+      await this.calculateTime();
+    } else {
+      UIManager.showMessage('Access to Zoho People is required to use this extension.', 'error');
+    }
   }
 
   updateReportDate() {
-    const today = new Date();
+    const today = Utils.nowUTC7();
     const dayOfMonth = today.getDate();
     
     let reportDate;
-    if (dayOfMonth === 23) {
-      // If day of month is 23, use 21st of current month
+    if (dayOfMonth === 22) {
+      // If day of month is 22, use 21st of current month
       reportDate = new Date(today.getFullYear(), today.getMonth(), 21);
     } else {
       // Otherwise use yesterday
@@ -59,6 +84,9 @@ export class AppController {
     // Go to Zoho button
     DOM.get('goTozoho')?.addEventListener('click', () => this.goToZoho());
 
+    // Grant host permissions button
+    DOM.get('grantAccess')?.addEventListener('click', () => this.grantAccess());
+
     // Auto log attendance button
     DOM.get('autoLogAttendance')?.addEventListener('click', () => this.autoLogAttendance());
 
@@ -68,6 +96,7 @@ export class AppController {
     // Modal buttons
     DOM.get('modalCancel')?.addEventListener('click', () => UIManager.hideConfirmationModal());
     DOM.get('modalCancelManual')?.addEventListener('click', () => UIManager.hideConfirmationModalManual());
+    DOM.get('donateModalClose')?.addEventListener('click', () => UIManager.hideDonateModal());
 
     DOM.get('modalConfirm')?.addEventListener('click', () => this.confirmAutoLog());
   }
@@ -131,6 +160,10 @@ export class AppController {
 
       await Storage.set({ data2 });
 
+      // Leave applications, so days already covered by leave are not suggested again
+      const leaves = await this.getLeaveApplications(hrId, csrfToken, fromDate, toDate, userId);
+      await Storage.set({ leaves });
+
       // Calculate statistics
       const lateDaysBelow6h = AttendanceAnalyzer.countEntriesBelow6h(data1?.regDetails);
       const lateDaysFrom6hTo8h = AttendanceAnalyzer.countEntriesFrom6hTo8h(data1?.regDetails);
@@ -166,6 +199,16 @@ export class AppController {
     }
   }
 
+  async getLeaveApplications(hrId, csrfToken, fromDate, toDate, userId) {
+    try {
+      const response = await ApiService.getLeaveApplications(hrId, csrfToken, fromDate, toDate, userId);
+      return response?.data || [];
+    } catch (error) {
+      console.error('Failed to load leave applications:', error);
+      return [];
+    }
+  }
+
   async goToZoho() {
     const activeTab = await ChromeAPI.getActiveTab();
     await ChromeAPI.updateTab(activeTab.id, 'https://accounts.zoho.com/signin?servicename=zohopeople&signupurl=https://www.zoho.com/people/signup.html');
@@ -185,15 +228,17 @@ export class AppController {
 
       const data2 = await Storage.get('data2');
       const requestDays = data2?.list || [];
+      const leaves = await Storage.get('leaves') || [];
 
       // Attendance requests go to the costliest days, leave covers the rest with minimum days
-      const plan = AttendanceAnalyzer.planLateDays(data1, requestDays);
+      const plan = AttendanceAnalyzer.planLateDays(data1, requestDays, leaves);
 
       if (plan.attendanceDays.length === 0 && plan.leaveDays.length === 0) {
-        const message = plan.lateDays.length > 0
-          ? `Nothing to do: ${plan.lateDays.length} late day(s) will be auto settled to 8h`
-          : 'No dates to log Attendance for';
-        UIManager.showMessage(message, plan.lateDays.length > 0 ? 'success' : 'error');
+        const notes = [];
+        if (plan.lateDays.length > 0) notes.push(`${plan.lateDays.length} late day(s) will be auto settled to 8h`);
+        if (plan.requestedDays.length > 0) notes.push(`${plan.requestedDays.length} day(s) already requested`);
+        const message = notes.length > 0 ? `Nothing to do: ${notes.join(', ')}` : 'No dates to log Attendance for';
+        UIManager.showMessage(message, notes.length > 0 ? 'success' : 'error');
         return;
       }
 
@@ -222,9 +267,10 @@ export class AppController {
       const data2 = await Storage.get('data2');
       const requestDays = data2?.list || [];
       console.log('data2', data2)
-      const plan = AttendanceAnalyzer.planLateDays(data1, requestDays);
+      const leaves = await Storage.get('leaves') || [];
+      const plan = AttendanceAnalyzer.planLateDays(data1, requestDays, leaves);
 
-      if (plan.attendanceDays.length + plan.leaveDays.length + plan.lateDays.length === 0) {
+      if (plan.attendanceDays.length + plan.leaveDays.length + plan.lateDays.length + plan.requestedDays.length === 0) {
         UIManager.showMessage('No days with less than 8 hours found.', 'error');
         return;
       }
@@ -251,12 +297,16 @@ export class AppController {
   async showGotoZohoSection() {
     UIManager.showConfigInterface();
     UIManager.resetDisplayValues();
-    await Storage.clear();
+    // Keep hrId and userId so the popup keeps working from any tab once logged in again
+    await Storage.remove(['data1', 'data2', 'leaves', 'top3MinDatesByTotalHrs', 'csrfToken', 'loginUserZUID']);
 
     try {
+      // Reload Zoho only, never an unrelated page the popup was opened on
       const activeTab = await ChromeAPI.getActiveTab();
-      await ChromeAPI.reloadTab(activeTab.id);
-      console.log('Page refreshed due to authentication issues');
+      if (activeTab?.url?.startsWith('https://people.zoho.com/')) {
+        await ChromeAPI.reloadTab(activeTab.id);
+        console.log('Page refreshed due to authentication issues');
+      }
     } catch (error) {
       console.error('Error refreshing page:', error);
     }

@@ -25,6 +25,13 @@ export const CONSTANTS = {
     { duration: 'half', days: 0.5, coverSeconds: 14400 },
     { duration: 'full', days: 1, coverSeconds: 28800 }
   ],
+  // Zoho leave application approval_status values
+  LEAVE_STATUS: {
+    PENDING: -1,
+    REJECTED: 0,
+    APPROVED: 1,
+    CANCELLED: 2
+  },
   REQUEST_LIMIT: 3,
   // Days with 6h-8h are auto settled to 8h as long as there are no more than this many of them
   MAX_LATE_DAYS: 5,

@@ -63,15 +63,15 @@ export class UIManager {
     DOM.setText('days6hTo8h', lateDaysFrom6hTo8h);
     DOM.setText('requestedDays', totalRequestDays);
     
-    // Show month transition note for dates 21-22
+    // Show month transition note on the 21st
     this.updateMonthTransitionNote();
   }
 
   static updateMonthTransitionNote() {
-    const currentDate = new Date();
+    const currentDate = Utils.nowUTC7();
     const dayOfMonth = currentDate.getDate();
     
-    if (dayOfMonth === 21 || dayOfMonth === 22) {
+    if (dayOfMonth === 21) {
       DOM.setDisplay('monthTransitionNote', 'block');
     } else {
       DOM.setDisplay('monthTransitionNote', 'none');
@@ -97,12 +97,20 @@ export class UIManager {
   }
 
   static showMainInterface() {
+    DOM.setDisplay('grantAccessSection', 'none');
     DOM.setDisplay('goToZohoSection', 'none');
     DOM.setDisplay('mainTable', 'table');
     DOM.setDisplay('autoLog', 'block');
   }
 
+  static showGrantAccessInterface() {
+    DOM.setDisplay('grantAccessSection', 'block');
+    DOM.setDisplay('mainTable', 'none');
+    DOM.setDisplay('autoLog', 'none');
+  }
+
   static showConfigInterface() {
+    DOM.setDisplay('grantAccessSection', 'none');
     DOM.setDisplay('goToZohoSection', 'block');
     DOM.setDisplay('mainTable', 'none');
     DOM.setDisplay('autoLog', 'none');
@@ -123,11 +131,33 @@ export class UIManager {
     return `${LEAVE_LABELS[leave.duration]}${period}`;
   }
 
+  static formatRequests(requests) {
+    return requests.map(request => {
+      const status = request.pending ? 'Pending' : 'Approved';
+      const days = { 1: 'full', 0.5: 'half', 0.25: 'quarter' }[request.days];
+      const label = request.type === 'attendance'
+        ? 'Attendance'
+        : `Leave - ${LEAVE_LABELS[days] || `${request.days} day(s)`}`;
+      return `${label} (${status})`;
+    }).join(' + ');
+  }
+
   static formatPlanAction(day, plan) {
-    if (plan.attendanceDays.includes(day)) return 'Log Attendance (8h)';
-    if (plan.lateDays.includes(day)) return 'No action - late day, auto settled to 8h';
+    if (plan.requestedDays.includes(day)) return `Requested: ${this.formatRequests(day.requests)}`;
+    const requestedNote = day.requests?.length ? ` (already requested: ${this.formatRequests(day.requests)})` : '';
+    if (plan.attendanceDays.includes(day)) return `Log Attendance (8h)${requestedNote}`;
+    if (plan.lateDays.includes(day)) return `No action - late day, auto settled to 8h${requestedNote}`;
     const settleNote = day.settlesAsLateDay ? ' → 6h+, late day auto settled to 8h' : '';
-    return `Leave: ${this.formatLeave(day.leave)}${settleNote}`;
+    return `Leave: ${this.formatLeave(day.leave)}${settleNote}${requestedNote}`;
+  }
+
+  static sortByDate(days) {
+    return days.sort((a, b) => Utils.parseCustomDate(a.date) - Utils.parseCustomDate(b.date));
+  }
+
+  // Only attendance requests are limited per month, leave is not
+  static formatRequestsLeft(plan) {
+    return `<strong>${plan.remainingRequests}/${CONSTANTS.REQUEST_LIMIT}</strong> attendance request(s) left (leave is not limited).`;
   }
 
   static formatPlanSummary(plan) {
@@ -170,8 +200,8 @@ export class UIManager {
 
     if (!modal || !summary || !tableBody) return;
 
-    const { attendanceDays, leaveDays, lateDays } = plan;
-    let summaryHtml = `You are about to log Attendance for ${attendanceDays.length} date(s) and apply leave for ${leaveDays.length} date(s). ${this.formatPlanSummary(plan)}`;
+    const { attendanceDays, leaveDays, lateDays, requestedDays } = plan;
+    let summaryHtml = `You are about to log Attendance for ${attendanceDays.length} date(s) and apply leave for ${leaveDays.length} date(s). ${this.formatRequestsLeft(plan)} ${this.formatPlanSummary(plan)}`;
     if (plan.remainingRequests === 0) {
       summaryHtml = `<span style="color: #e74c3c; font-weight: bold;">⚠️ You've reached your request limit for this month</span><br><br>${summaryHtml}`;
     }
@@ -180,8 +210,7 @@ export class UIManager {
 
     tableBody.innerHTML = '';
 
-    const rows = [...attendanceDays, ...leaveDays, ...lateDays]
-      .sort((a, b) => new Date(a.date) - new Date(b.date));
+    const rows = this.sortByDate([...attendanceDays, ...leaveDays, ...lateDays, ...requestedDays]);
 
     rows.forEach(day => {
       const row = document.createElement('tr');
@@ -191,7 +220,7 @@ export class UIManager {
       row.innerHTML = `
         <td>${day.date}</td>
         <td>${formattedCurrentHours}</td>
-        <td class="will-log">${this.formatPlanAction(day, plan)}</td>
+        <td class="${requestedDays.includes(day) ? 'requested' : 'will-log'}">${this.formatPlanAction(day, plan)}</td>
       `;
       tableBody.appendChild(row);
     });
@@ -232,14 +261,13 @@ export class UIManager {
     }
 
     // Rows in date order, each carrying its suggested action from the optimal plan
-    const days = [...plan.attendanceDays, ...plan.leaveDays, ...plan.lateDays]
-      .sort((a, b) => new Date(a.date) - new Date(b.date));
+    const days = this.sortByDate([...plan.attendanceDays, ...plan.leaveDays, ...plan.lateDays, ...plan.requestedDays]);
     const planText = this.formatPlanSummary(plan);
 
     if (limitReached) {
-      summary.innerHTML = `<span style="color: #e74c3c; font-weight: bold;">⚠️ You've reached your request limit for this month</span><br><br>Apply leave for days below 8h (${days.length} days available). ${planText}`;
+      summary.innerHTML = `<span style="color: #e74c3c; font-weight: bold;">⚠️ You've reached your request limit for this month</span><br><br>Apply leave for days below 8h (leave is not limited). ${planText}`;
     } else {
-      summary.innerHTML = `Select days to log Attendance or apply leave (${days.length} days available). ${planText}`;
+      summary.innerHTML = `Select days to log Attendance or apply leave. ${this.formatRequestsLeft(plan)} ${planText}`;
     }
 
     tableBody.innerHTML = '';
@@ -252,21 +280,24 @@ export class UIManager {
       const currentHours = data1.regDetails[date]?.totalhrs || 0;
       const formattedCurrentHours = Utils.formatSecondsToHoursMinutes(currentHours);
 
-      const buttonStyle = limitReached
-        ? 'padding: 4px 8px; font-size: 12px; opacity: 0.5; cursor: not-allowed;'
-        : 'padding: 4px 8px; font-size: 12px;';
-      const leaveButtonStyle = 'padding: 4px 8px; font-size: 12px; background-color: #007bff; color: white; border: none;';
+      // Days already covered by pending/approved requests can't be requested again
+      const isRequested = plan.requestedDays.includes(day);
+      const logDisabled = limitReached || isRequested || day.hasAttendanceRequest;
+      const logTitle = isRequested || day.hasAttendanceRequest ? 'Already requested' : 'Request limit reached';
+      const disabledStyle = ' opacity: 0.5; cursor: not-allowed;';
+      const buttonStyle = `padding: 4px 8px; font-size: 12px;${logDisabled ? disabledStyle : ''}`;
+      const leaveButtonStyle = `padding: 4px 8px; font-size: 12px; background-color: #007bff; color: white; border: none;${isRequested ? disabledStyle : ''}`;
 
       row.innerHTML = `
         <td>${date}</td>
         <td>${formattedCurrentHours}</td>
-        <td class="will-log">${this.formatPlanAction(day, plan)}</td>
+        <td class="${isRequested ? 'requested' : 'will-log'}">${this.formatPlanAction(day, plan)}</td>
         <td>
           <div class="row-actions">
-          <button class="modal-button confirm log-btn" style="${buttonStyle}" data-date="${date}" ${limitReached ? 'disabled title="Request limit reached"' : ''}>
+          <button class="modal-button confirm log-btn" style="${buttonStyle}" data-date="${date}" ${logDisabled ? `disabled title="${logTitle}"` : ''}>
             Log Attendance
           </button>
-          <button class="modal-button leave-btn" style="${leaveButtonStyle}" data-date="${date}">
+          <button class="modal-button leave-btn" style="${leaveButtonStyle}" data-date="${date}" ${isRequested ? 'disabled title="Already requested"' : ''}>
             Apply Leave
           </button>
           </div>
@@ -276,7 +307,12 @@ export class UIManager {
       const logButton = row.querySelector('.log-btn');
       const leaveButton = row.querySelector('.leave-btn');
 
-      if (!limitReached) {
+      if (isRequested) {
+        tableBody.appendChild(row);
+        return;
+      }
+
+      if (!logDisabled) {
         logButton.addEventListener('click', async () => {
           logButton.disabled = true;
           leaveButton.disabled = true;
@@ -433,6 +469,14 @@ export class UIManager {
     });
 
     modal.style.display = 'flex';
+  }
+
+  static showDonateModal() {
+    DOM.setDisplay('donateModal', 'flex');
+  }
+
+  static hideDonateModal() {
+    DOM.setDisplay('donateModal', 'none');
   }
 
   static hideLeaveModal() {

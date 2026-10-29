@@ -12,6 +12,10 @@ export const Storage = {
     return await chrome.storage.local.set(data);
   },
 
+  async remove(keys) {
+    return await chrome.storage.local.remove(keys);
+  },
+
   async clear() {
     return await chrome.storage.local.clear();
   }

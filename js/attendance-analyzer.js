@@ -158,6 +158,67 @@ export const AttendanceAnalyzer = {
     return requestDays.filter(item => item.status != 2 && item.status != 0).length;
   },
 
+  // Work time each date will gain once its pending or approved requests are approved:
+  //  - attendance requests: the regularized in/out time minus the hours already worked
+  //  - leave applications: leave days x 8h
+  // Returns { date: [{ type, seconds, days, pending }] }
+  getExistingRequests(data, requestDays, leaves = []) {
+    const regDetails = data.regDetails;
+    const requests = {};
+    const add = (date, request) => {
+      (requests[date] = requests[date] || []).push(request);
+    };
+
+    requestDays
+      .filter(item => item.status != 2 && item.status != 0)
+      .forEach(item => {
+        const pending = item.status != 1;
+        if (!item.regDetails?.length) {
+          // No per-day details: assume the request covers the full day
+          add(item.startDate, { type: 'attendance', seconds: CONSTANTS.THRESHOLDS.EIGHT_HOURS_SECONDS, pending });
+          return;
+        }
+        item.regDetails.forEach(reg => {
+          const value = regDetails[reg.originday];
+          const current = value && !this.isAbsent(value) ? this.calculateValidWorkHours(value) : 0;
+          const requested = this.calculateValidWorkHours({
+            fromdate: reg.new_intime,
+            todate: reg.new_outtime,
+            totalhrs: reg.new_totalHours
+          });
+          add(reg.originday, { type: 'attendance', seconds: Math.max(0, requested - current), pending });
+        });
+      });
+
+    const { PENDING, APPROVED } = CONSTANTS.LEAVE_STATUS;
+    leaves
+      .filter(leave => leave.approval_status === PENDING || leave.approval_status === APPROVED)
+      .forEach(leave => {
+        const pending = leave.approval_status === PENDING;
+        if (leave.from === leave.to) {
+          add(leave.from, {
+            type: 'leave',
+            days: leave.leavetaken,
+            seconds: leave.leavetaken * CONSTANTS.THRESHOLDS.EIGHT_HOURS_SECONDS,
+            pending
+          });
+          return;
+        }
+        // Multi-day leave covers every working day in its range in full
+        const from = Utils.parseCustomDate(leave.from);
+        const to = Utils.parseCustomDate(leave.to);
+        Object.entries(regDetails)
+          .filter(([key, value]) => value && typeof value === 'object' && key !== 'dayList' && this.isWorkingDay(value))
+          .filter(([key]) => {
+            const date = Utils.parseCustomDate(key);
+            return date >= from && date <= to;
+          })
+          .forEach(([key]) => add(key, { type: 'leave', days: 1, seconds: CONSTANTS.THRESHOLDS.EIGHT_HOURS_SECONDS, pending }));
+      });
+
+    return requests;
+  },
+
   // Smallest leave that brings the day up to targetSeconds, with the period matching the missing part
   // (came late -> morning period, left early -> afternoon period). Returns null when nothing is needed.
   getMinimalLeave(value, targetSeconds = CONSTANTS.THRESHOLDS.EIGHT_HOURS_SECONDS) {
@@ -188,19 +249,30 @@ export const AttendanceAnalyzer = {
   //  - 'leave':    leave up to the full 8h
   // Days are few and both limits are small, so an exact DP over (requests used, late days used) is cheap.
   // Ties prefer using fewer requests, then fewer late days, keeping them for the rest of the month.
-  planLateDays(data, requestDays) {
+  // Days already covered by pending or approved requests are returned as requestedDays and left out of the plan;
+  // partially covered days only plan for the time still missing.
+  planLateDays(data, requestDays, leaves = []) {
     const remainingRequests = Math.max(0, CONSTANTS.REQUEST_LIMIT - this.countUsedRequests(requestDays));
     const maxLateDays = CONSTANTS.MAX_LATE_DAYS;
+    const existingRequests = this.getExistingRequests(data, requestDays, leaves);
+    const requestedDays = [];
 
-    const days = this.getDaysBelow8h(data, requestDays)
+    const days = this.getDaysBelow8h(data)
       .filter(day => !this.isPaidLeave(data.regDetails[day.date]))
       .map(day => {
         const value = data.regDetails[day.date];
-        const fullLeave = this.getMinimalLeave(value);
-        const lateLeave = this.getMinimalLeave(value, CONSTANTS.THRESHOLDS.SIX_HOURS_SECONDS);
-        return { ...day, fullLeave, lateLeave };
+        const requests = existingRequests[day.date] || [];
+        const requestedSeconds = requests.reduce((sum, request) => sum + request.seconds, 0);
+        const fullLeave = this.getMinimalLeave(value, CONSTANTS.THRESHOLDS.EIGHT_HOURS_SECONDS - requestedSeconds);
+        const lateLeave = this.getMinimalLeave(value, CONSTANTS.THRESHOLDS.SIX_HOURS_SECONDS - requestedSeconds);
+        const hasAttendanceRequest = requests.some(request => request.type === 'attendance');
+        return { ...day, requests, hasAttendanceRequest, fullLeave, lateLeave };
       })
-      .filter(day => day.fullLeave);
+      .filter(day => {
+        if (day.fullLeave) return true;
+        if (day.requests.length > 0) requestedDays.push(day);
+        return false;
+      });
 
     const choiceCost = (day, choice) => {
       if (choice === 'request') return 0;
@@ -214,6 +286,8 @@ export const AttendanceAnalyzer = {
       const next = new Map();
       for (const state of states.values()) {
         for (const choice of ['request', 'late', 'leave']) {
+          // A day gets at most one attendance request
+          if (choice === 'request' && day.hasAttendanceRequest) continue;
           const requests = state.requests + (choice === 'request' ? 1 : 0);
           const lateDays = state.lateDays + (choice === 'late' ? 1 : 0);
           if (requests > remainingRequests || lateDays > maxLateDays) continue;
@@ -250,17 +324,15 @@ export const AttendanceAnalyzer = {
       attendanceDays,
       leaveDays,
       lateDays,
+      requestedDays,
       totalLeaveDays: best.cost,
       lateDaysUsed: best.lateDays,
       remainingRequests
     };
   },
 
-  getDaysBelow8h(data, requestDays) {
+  getDaysBelow8h(data) {
     const regDetails = data.regDetails;
-    const requestedDates = requestDays
-      .filter(item => item.status != 2 && item.status != 0)
-      .map(day => day.startDate || day);
 
     // Get today's date in the same format as the data
     const today = Utils.formatDateToCustom(new Date());
@@ -271,17 +343,8 @@ export const AttendanceAnalyzer = {
         // Exclude today's date - only analyze up to yesterday
         if (key === today || key === "dayList") return false;
 
-        const isWorkingDay = this.isWorkingDay(value);
-        const isAbsent = this.isAbsent(value);
-        const isInRequestedDays = requestedDates.includes(key);
-
-        if (!isWorkingDay || isInRequestedDays) {
-          return false;
-        }
-
-        if (isAbsent) {
-          return !isInRequestedDays;
-        }
+        if (!this.isWorkingDay(value)) return false;
+        if (this.isAbsent(value)) return true;
 
         const validHours = this.calculateValidWorkHours(value);
         return validHours < CONSTANTS.THRESHOLDS.EIGHT_HOURS_SECONDS;
