@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Working Time Calculator",
-  "version": "1.0.2",
-  "description": "Calculate working time from Zoho People",
+  "version": "8.0.1",
+  "description": "Track your Zoho People working hours, get late-day and leave suggestions, and log attendance or apply leave in one click.",
   "author": "Luuns",
   "permissions": [
     "activeTab",
@@ -10,6 +10,9 @@
     "storage",
     "cookies"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_popup": "index.html"
   },
