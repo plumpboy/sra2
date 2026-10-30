@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Working Time Calculator</title>
+  <script src="js/embed.js"></script>
   <style>
     /* Container and responsive layout */
     html,
@@ -16,6 +17,22 @@
       padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background-color: #f8f9fa;
+    }
+
+    /* Embedded in another popup: that popup's tab bar replaces this one */
+    html.embedded,
+    html.embedded body {
+      width: 100%;
+      background-color: #fff;
+    }
+
+    html.embedded .tab-container {
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    html.embedded .tab-nav {
+      display: none;
     }
 
     /* Tab Navigation Styles */
