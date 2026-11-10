@@ -301,12 +301,18 @@ export class AppController {
     await Storage.remove(['data1', 'data2', 'leaves', 'top3MinDatesByTotalHrs', 'csrfToken', 'loginUserZUID']);
 
     try {
-      // Reload Zoho only, never an unrelated page the popup was opened on
+      // Reload Zoho only, never an unrelated page the popup was opened on.
+      // At most once per cooldown: if the reload did not bring the cookies back, reloading again
+      // on every popup open or Calculate click just keeps refreshing the Zoho tab
       const activeTab = await ChromeAPI.getActiveTab();
-      if (activeTab?.url?.startsWith('https://people.zoho.com/')) {
-        await ChromeAPI.reloadTab(activeTab.id);
-        console.log('Page refreshed due to authentication issues');
-      }
+      if (!activeTab?.url?.startsWith('https://people.zoho.com/')) return;
+
+      const lastReload = await Storage.get('authReloadAt') || 0;
+      if (Date.now() - lastReload < CONSTANTS.AUTH_RELOAD_COOLDOWN) return;
+
+      await Storage.set({ authReloadAt: Date.now() });
+      await ChromeAPI.reloadTab(activeTab.id);
+      console.log('Page refreshed due to authentication issues');
     } catch (error) {
       console.error('Error refreshing page:', error);
     }

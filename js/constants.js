@@ -36,5 +36,7 @@ export const CONSTANTS = {
   // Days with 6h-8h are auto settled to 8h as long as there are no more than this many of them
   MAX_LATE_DAYS: 5,
   MESSAGE_TIMEOUT: 5000,
-  REFRESH_DELAY: 1500
+  REFRESH_DELAY: 1500,
+  // Minimum time between automatic Zoho tab reloads when the login cookies are missing
+  AUTH_RELOAD_COOLDOWN: 5 * 60 * 1000
 };

@@ -1,21 +1,62 @@
-// API Service for Zoho People interactions
-export const ApiService = {
-  async makeRequest(url, params, credentials = true) {
+import { AuthManager } from './auth-manager.js';
+import { ChromeAPI } from './chrome-api.js';
+
+const REQUEST_HEADERS = {
+  'Accept': '*/*',
+  'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+  'X-Requested-With': 'XMLHttpRequest'
+};
+
+// Runs inside the Zoho People page, so it must be self contained
+async function zohoFetch(url, params) {
+  try {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Accept': '*/*',
         'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        'X-Requested-With': 'XMLHttpRequest',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'same-origin',
+        'X-Requested-With': 'XMLHttpRequest'
       },
+      body: new URLSearchParams(params),
+      credentials: 'include'
+    });
+    return { data: await response.json() };
+  } catch (error) {
+    return { error: String(error) };
+  }
+}
+
+// API Service for Zoho People interactions
+export const ApiService = {
+  // Zoho sets CSRF_TOKEN as a partitioned cookie, which the browser only sends with requests made
+  // from a people.zoho.com page, never with the extension's own requests (Zoho then answers
+  // INVALID_CSRF_TOKEN). So requests run inside an open Zoho People tab when there is one.
+  async makeRequest(url, params, credentials = true) {
+    const zohoTab = credentials ? await AuthManager.findZohoTab() : null;
+    if (zohoTab) {
+      const result = await ChromeAPI.executeScript(zohoTab.id, zohoFetch, [url, params]);
+      if (!result) throw new Error('Request through the Zoho People tab failed');
+      if (result.error) throw new Error(result.error);
+      return this.checkResponse(result.data);
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: REQUEST_HEADERS,
       body: new URLSearchParams(params),
       credentials: credentials ? 'include' : 'omit'
     });
 
-    return await response.json();
+    return this.checkResponse(await response.json());
+  },
+
+  checkResponse(data) {
+    // Zoho answers a bad or expired token with a 400 error body, not data; fail here so callers
+    // show the Go to Zoho screen instead of crashing on the missing fields
+    if (data?.code === 'INVALID_CSRF_TOKEN') {
+      throw new Error('Zoho rejected the CSRF token (INVALID_CSRF_TOKEN)');
+    }
+    return data;
   },
 
   async getAttendanceList(hrId, csrfToken) {

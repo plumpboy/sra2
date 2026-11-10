@@ -26,10 +26,10 @@ export const ChromeAPI = {
     });
   },
 
-  async executeScript(tabId, func) {
+  async executeScript(tabId, func, args = []) {
     return new Promise((resolve) => {
       chrome.scripting.executeScript(
-        { target: { tabId }, func },
+        { target: { tabId }, func, args },
         (results) => resolve(results?.[0]?.result)
       );
     });
